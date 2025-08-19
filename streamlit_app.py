@@ -31,18 +31,19 @@ def ead_trapezoidal(prob, damages):
     )
 
 
-def storage_cost(quantity, unit_price, storage_rate, interest_rate, years):
-    """Compute total storage cost given rates and time.
+def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
+    """Compute updated cost of storage for reservoir reallocations.
 
-    The calculation follows financial analysis practices recommended in
-    Office of Management and Budget Circular A-94 (1992).
+    Updated Cost of Storage = (TC - SP) * Storage reallocated / Total usable storage space
+    where:
+    * TC – total costs of construction updated using CWCCIS and ENR.
+    * SP – specific costs of identifiable project features updated using CWCCIS and ENR.
     """
-    quantity = float(quantity)
-    unit_price = float(unit_price)
-    storage_rate = float(storage_rate)
-    interest_rate = float(interest_rate)
-    years = float(years)
-    return quantity * unit_price * (storage_rate + interest_rate) * years
+    tc = float(tc)
+    sp = float(sp)
+    storage_reallocated = float(storage_reallocated)
+    total_usable_storage = float(total_usable_storage)
+    return (tc - sp) * storage_reallocated / total_usable_storage
 
 
 # ---------------------------------------------------------------------------
@@ -263,52 +264,45 @@ if st.button(
 
 
 # ---------------------------------------------------------------------------
-# Cost of storage calculator
+# Updated cost of storage calculator
 # ---------------------------------------------------------------------------
-st.header("Cost of Storage Calculator")
+st.header("Updated Cost of Storage Calculator")
 st.caption(
-    "Reference: Office of Management and Budget, Circular A-94 (1992)."
+    "Reference: Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR)."
 )
 st.info(
-    "Estimate the total cost of storing items by providing the quantity, unit price, "
-    "and annual rates."
+    "Estimate the updated cost of storage for a reservoir reallocation."
 )
 with st.form("storage_form"):
-    quantity = st.number_input(
-        "Quantity",
+    tc = st.number_input(
+        "Total construction cost (TC)",
         min_value=0.0,
-        value=100.0,
-        help="Number of items being stored.",
+        value=1000000.0,
+        help="Total costs of construction updated using CWCCIS and ENR.",
     )
-    unit_price = st.number_input(
-        "Unit price",
+    sp = st.number_input(
+        "Specific costs (SP)",
         min_value=0.0,
-        value=10.0,
-        help="Cost per item.",
+        value=100000.0,
+        help="Costs of identifiable project features for a specific purpose, updated using CWCCIS and ENR.",
     )
-    storage_rate = st.number_input(
-        "Annual storage cost (%)",
+    storage_reallocated = st.number_input(
+        "Storage reallocated (ac-ft)",
         min_value=0.0,
-        value=2.0,
-        help="Percentage of the unit price charged each year for storage.",
-    ) / 100
-    interest_rate = st.number_input(
-        "Annual interest rate (%)",
+        value=1000.0,
+        help="Volume of storage being reallocated.",
+    )
+    total_usable_storage = st.number_input(
+        "Total usable storage space (ac-ft)",
         min_value=0.0,
-        value=5.0,
-        help="Opportunity cost of capital as a percentage.",
-    ) / 100
-    years = st.number_input(
-        "Years in storage",
-        min_value=0.0,
-        value=1.0,
-        help="Total time items remain in storage.",
+        value=10000.0,
+        help="Total usable storage capacity of the project.",
     )
     compute_storage = st.form_submit_button(
-        "Compute storage cost",
-        help="Calculate the total cost of storage.",
+        "Compute updated cost",
+        help="Calculate the updated cost of storage.",
     )
 if compute_storage:
-    cost = storage_cost(quantity, unit_price, storage_rate, interest_rate, years)
-    st.success(f"Total storage cost: ${cost:,.2f}")
+    cost = updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage)
+    st.success(f"Updated cost of storage: ${cost:,.2f}")
 
