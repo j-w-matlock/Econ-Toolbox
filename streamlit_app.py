@@ -36,6 +36,10 @@ def storage_cost(quantity, unit_price, storage_rate, interest_rate, years):
 # Data input section
 # ---------------------------------------------------------------------------
 st.subheader("Inputs")
+st.info(
+    "Fill in the frequency and damage values below. Use the checkbox to add a stage "
+    "column and the button to insert additional damage columns as needed."
+)
 
 # Initialize session state for dynamic table
 if "num_damage_cols" not in st.session_state:
@@ -61,7 +65,9 @@ if "table" not in st.session_state:
 
 # Optionally include stage column
 include_stage = st.checkbox(
-    "Include stage column", value="Stage" in st.session_state.table.columns
+    "Include stage column",
+    value="Stage" in st.session_state.table.columns,
+    help="Add a column for stage values to enable stage-related charts.",
 )
 if include_stage and "Stage" not in st.session_state.table.columns:
     st.session_state.table.insert(1, "Stage", [None] * len(st.session_state.table))
@@ -69,7 +75,7 @@ elif not include_stage and "Stage" in st.session_state.table.columns:
     st.session_state.table.drop(columns="Stage", inplace=True)
 
 # Allow user to add additional damage columns
-if st.button("Add damage column"):
+if st.button("Add damage column", help="Insert another damage column to compare scenarios."):
     st.session_state.num_damage_cols += 1
     st.session_state.table[f"Damage {st.session_state.num_damage_cols}"] = [
         None
@@ -94,8 +100,11 @@ with st.form("data_table_form"):
         use_container_width=True,
         key="table_editor",
         column_config=column_config,
+        help="Edit frequency, damage, and optional stage values. Frequencies should be between 0 and 1.",
     )
-    submitted = st.form_submit_button("Save table")
+    submitted = st.form_submit_button(
+        "Save table", help="Apply edits to the table above."
+    )
 if submitted:
     st.session_state.table = data
 
@@ -109,7 +118,12 @@ chart_data = (
 )
 if not chart_data.empty and damage_cols:
     st.subheader("Damage-Frequency Curve")
-    selected_damage = st.selectbox("Select damage column", damage_cols, key="df_damage")
+    selected_damage = st.selectbox(
+        "Select damage column",
+        damage_cols,
+        key="df_damage",
+        help="Choose which damage column to visualize.",
+    )
     st.line_chart(chart_data[[selected_damage]])
     charts_for_export.append(
         {
@@ -129,7 +143,10 @@ if "Stage" in st.session_state.table.columns:
         if damage_cols:
             st.subheader("Stage-Damage Curve")
             dmg_col = st.selectbox(
-                "Select damage column (stage)", damage_cols, key="stage_damage"
+                "Select damage column (stage)",
+                damage_cols,
+                key="stage_damage",
+                help="Damage column to plot against stage values.",
             )
             st.line_chart(stage_df[[dmg_col]])
             charts_for_export.append(
@@ -181,13 +198,22 @@ st.download_button(
     data=buffer,
     file_name="ead_data.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    help="Export the current table and generated charts as an Excel file.",
 )
 
 
 # ---------------------------------------------------------------------------
 # Calculation section
 # ---------------------------------------------------------------------------
-if st.button("Calculate EAD"):
+st.subheader("EAD Results")
+st.info(
+    "Click the button below to compute expected annual damages for each damage "
+    "column using trapezoidal integration."
+)
+if st.button(
+    "Calculate EAD",
+    help="Run the trapezoidal method on the frequency and damage data.",
+):
     df = st.session_state.table.dropna(subset=["Frequency"]).sort_values(
         "Frequency", ascending=False
     )
@@ -228,13 +254,45 @@ if st.button("Calculate EAD"):
 # Cost of storage calculator
 # ---------------------------------------------------------------------------
 st.header("Cost of Storage Calculator")
+st.info(
+    "Estimate the total cost of storing items by providing the quantity, unit price, "
+    "and annual rates."
+)
 with st.form("storage_form"):
-    quantity = st.number_input("Quantity", min_value=0.0, value=100.0)
-    unit_price = st.number_input("Unit price", min_value=0.0, value=10.0)
-    storage_rate = st.number_input("Annual storage cost (%)", min_value=0.0, value=2.0) / 100
-    interest_rate = st.number_input("Annual interest rate (%)", min_value=0.0, value=5.0) / 100
-    years = st.number_input("Years in storage", min_value=0.0, value=1.0)
-    compute_storage = st.form_submit_button("Compute storage cost")
+    quantity = st.number_input(
+        "Quantity",
+        min_value=0.0,
+        value=100.0,
+        help="Number of items being stored.",
+    )
+    unit_price = st.number_input(
+        "Unit price",
+        min_value=0.0,
+        value=10.0,
+        help="Cost per item.",
+    )
+    storage_rate = st.number_input(
+        "Annual storage cost (%)",
+        min_value=0.0,
+        value=2.0,
+        help="Percentage of the unit price charged each year for storage.",
+    ) / 100
+    interest_rate = st.number_input(
+        "Annual interest rate (%)",
+        min_value=0.0,
+        value=5.0,
+        help="Opportunity cost of capital as a percentage.",
+    ) / 100
+    years = st.number_input(
+        "Years in storage",
+        min_value=0.0,
+        value=1.0,
+        help="Total time items remain in storage.",
+    )
+    compute_storage = st.form_submit_button(
+        "Compute storage cost",
+        help="Calculate the total cost of storage.",
+    )
 if compute_storage:
     cost = storage_cost(quantity, unit_price, storage_rate, interest_rate, years)
     st.success(f"Total storage cost: ${cost:,.2f}")
