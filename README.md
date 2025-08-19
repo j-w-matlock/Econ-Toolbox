@@ -1,7 +1,7 @@
 # 🎈 Economic toolbox
 
 A Streamlit application featuring an Expected Annual Damage (EAD) calculator
-and a cost of storage calculator.
+and an updated cost of storage calculator.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 
@@ -23,3 +23,4 @@ and a cost of storage calculator.
 
 - U.S. Army Corps of Engineers. (1996). *Engineering Manual 1110-2-1619: Risk-Based Analysis for Flood Damage Reduction Studies*.
 - U.S. Office of Management and Budget. (1992). *Circular A-94: Guidelines and Discount Rates for Benefit-Cost Analysis of Federal Programs*.
+- U.S. Army Corps of Engineers. Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR) cost indexes.
