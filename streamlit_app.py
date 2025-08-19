@@ -135,12 +135,23 @@ if st.button("Calculate EAD"):
         "Frequency", ascending=False
     )
     freq = df["Frequency"].to_numpy()
+
+    # Validate that frequencies begin at 1 and decrease towards 0
+    if not np.isclose(freq[0], 1.0) or np.any(np.diff(freq) > 0):
+        st.warning("Frequencies should start at 1 and monotonically decrease to 0.")
+
+    missing_zero = freq[-1] != 0
+    if missing_zero:
+        st.info("Final frequency not 0; appending zero-frequency point using last damage value.")
+
     results = {}
     for col in df.columns:
         if col.startswith("Damage"):
             damages = df[col].fillna(0).to_numpy()
-            if len(freq) >= 2 and len(freq) == len(damages):
-                results[col] = ead_trapezoidal(freq, damages)
+            freq_use = np.append(freq, 0.0) if missing_zero else freq
+            damages_use = np.append(damages, damages[-1]) if missing_zero else damages
+            if len(freq_use) >= 2 and len(freq_use) == len(damages_use):
+                results[col] = ead_trapezoidal(freq_use, damages_use)
             else:
                 results[col] = None
 
