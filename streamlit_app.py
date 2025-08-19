@@ -65,6 +65,7 @@ data = st.data_editor(
     st.session_state.table,
     num_rows="dynamic",
     use_container_width=True,
+    key="table_editor",
 )
 st.session_state.table = data
 
