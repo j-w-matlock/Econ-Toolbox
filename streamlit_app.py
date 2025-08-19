@@ -60,12 +60,24 @@ if st.button("Add damage column"):
         None
     ] * len(st.session_state.table)
 
-# Editable table
+# Editable table with column configuration
+column_config = {
+    "Frequency": st.column_config.NumberColumn(
+        "Frequency", min_value=0, max_value=1, step=0.001
+    )
+}
+for col in st.session_state.table.columns:
+    if col.startswith("Damage"):
+        column_config[col] = st.column_config.NumberColumn(
+            col, min_value=0, step=1000, format="$%d"
+        )
+
 data = st.data_editor(
     st.session_state.table,
     num_rows="dynamic",
     use_container_width=True,
     key="table_editor",
+    column_config=column_config,
 )
 st.session_state.table = data
 
