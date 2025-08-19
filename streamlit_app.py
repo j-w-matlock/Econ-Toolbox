@@ -72,14 +72,17 @@ for col in st.session_state.table.columns:
             col, min_value=0, step=1000, format="$%d"
         )
 
-data = st.data_editor(
-    st.session_state.table,
-    num_rows="dynamic",
-    use_container_width=True,
-    key="table_editor",
-    column_config=column_config,
-)
-st.session_state.table = data
+with st.form("data_table_form"):
+    data = st.data_editor(
+        st.session_state.table,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="table_editor",
+        column_config=column_config,
+    )
+    submitted = st.form_submit_button("Save table")
+if submitted:
+    st.session_state.table = data
 
 # Plot damage-frequency curve
 damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
