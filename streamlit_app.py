@@ -30,8 +30,9 @@ if "num_damage_cols" not in st.session_state:
 if "table" not in st.session_state:
     st.session_state.table = pd.DataFrame(
         {
-            "Frequency": [0.50, 0.20, 0.10, 0.04, 0.02, 0.01, 0.005, 0.002],
+            "Frequency": [1.00, 0.50, 0.20, 0.10, 0.04, 0.02, 0.01, 0.005, 0.002],
             "Damage 1": [
+                0,
                 10000,
                 40000,
                 80000,
@@ -91,9 +92,28 @@ chart_data = (
     .sort_values("Frequency")
     .set_index("Frequency")[damage_cols]
 )
-if not chart_data.empty:
+if not chart_data.empty and damage_cols:
     st.subheader("Damage-Frequency Curve")
-    st.line_chart(chart_data)
+    selected_damage = st.selectbox("Select damage column", damage_cols, key="df_damage")
+    st.line_chart(chart_data[[selected_damage]])
+
+# Plot stage-related curves
+if "Stage" in st.session_state.table.columns:
+    stage_df = (
+        st.session_state.table.dropna(subset=["Stage"])
+        .sort_values("Stage")
+        .set_index("Stage")
+    )
+    if not stage_df.empty:
+        if damage_cols:
+            st.subheader("Stage-Damage Curve")
+            dmg_col = st.selectbox(
+                "Select damage column (stage)", damage_cols, key="stage_damage"
+            )
+            st.line_chart(stage_df[[dmg_col]])
+        if "Frequency" in stage_df.columns:
+            st.subheader("Stage-Frequency Curve")
+            st.line_chart(stage_df["Frequency"])
 
 # Export table to Excel
 buffer = BytesIO()
