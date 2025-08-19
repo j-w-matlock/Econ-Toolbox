@@ -11,10 +11,19 @@ st.title("Expected Annual Damage (EAD) Calculator")
 st.write(
     "Compute expected annual damages using the U.S. Army Corps of Engineers trapezoidal method."
 )
+st.caption(
+    "Reference: U.S. Army Corps of Engineers, Engineering Manual 1110-2-1619 (1996)."
+)
 
 
 def ead_trapezoidal(prob, damages):
-    """Return expected annual damage via trapezoidal integration."""
+    """Return expected annual damage via trapezoidal integration.
+
+    Implements the trapezoidal integration method described in the
+    U.S. Army Corps of Engineers' risk analysis guidance
+    (EM 1110-2-1619, *Risk-Based Analysis for Flood Damage Reduction Studies*,
+    1996).
+    """
     prob = np.asarray(prob, dtype=float)
     damages = np.asarray(damages, dtype=float)
     return float(
@@ -23,7 +32,11 @@ def ead_trapezoidal(prob, damages):
 
 
 def storage_cost(quantity, unit_price, storage_rate, interest_rate, years):
-    """Compute total storage cost given rates and time."""
+    """Compute total storage cost given rates and time.
+
+    The calculation follows financial analysis practices recommended in
+    Office of Management and Budget Circular A-94 (1992).
+    """
     quantity = float(quantity)
     unit_price = float(unit_price)
     storage_rate = float(storage_rate)
@@ -253,6 +266,9 @@ if st.button(
 # Cost of storage calculator
 # ---------------------------------------------------------------------------
 st.header("Cost of Storage Calculator")
+st.caption(
+    "Reference: Office of Management and Budget, Circular A-94 (1992)."
+)
 st.info(
     "Estimate the total cost of storing items by providing the quantity, unit price, "
     "and annual rates."
