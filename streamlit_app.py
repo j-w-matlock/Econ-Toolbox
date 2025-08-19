@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+from io import BytesIO
 
 st.title("Expected Annual Damage (EAD) Calculator")
 st.write(
@@ -29,8 +30,17 @@ if "num_damage_cols" not in st.session_state:
 if "table" not in st.session_state:
     st.session_state.table = pd.DataFrame(
         {
-            "Frequency": [0.50, 0.20, 0.10, 0.04, 0.01],
-            "Damage 1": [10000, 40000, 80000, 120000, 250000],
+            "Frequency": [0.50, 0.20, 0.10, 0.04, 0.02, 0.01, 0.005, 0.002],
+            "Damage 1": [
+                10000,
+                40000,
+                80000,
+                120000,
+                160000,
+                200000,
+                250000,
+                300000,
+            ],
         }
     )
 
@@ -57,6 +67,28 @@ data = st.data_editor(
     use_container_width=True,
 )
 st.session_state.table = data
+
+# Plot damage-frequency curve
+damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
+chart_data = (
+    st.session_state.table.dropna(subset=["Frequency"])
+    .sort_values("Frequency")
+    .set_index("Frequency")[damage_cols]
+)
+if not chart_data.empty:
+    st.subheader("Damage-Frequency Curve")
+    st.line_chart(chart_data)
+
+# Export table to Excel
+buffer = BytesIO()
+st.session_state.table.to_excel(buffer, index=False)
+buffer.seek(0)
+st.download_button(
+    label="Download table as Excel",
+    data=buffer,
+    file_name="ead_data.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
 
 # ---------------------------------------------------------------------------
