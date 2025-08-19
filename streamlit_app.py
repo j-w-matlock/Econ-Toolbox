@@ -100,7 +100,6 @@ with st.form("data_table_form"):
         use_container_width=True,
         key="table_editor",
         column_config=column_config,
-        help="Edit frequency, damage, and optional stage values. Frequencies should be between 0 and 1.",
     )
     submitted = st.form_submit_button(
         "Save table", help="Apply edits to the table above."
