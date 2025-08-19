@@ -1,6 +1,7 @@
-# 🎈 Blank app template
+# 🎈 Economic toolbox
 
-A simple Streamlit app template for you to modify!
+A Streamlit application featuring an Expected Annual Damage (EAD) calculator
+and a cost of storage calculator.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 

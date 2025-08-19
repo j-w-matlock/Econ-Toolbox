@@ -22,6 +22,16 @@ def ead_trapezoidal(prob, damages):
     )
 
 
+def storage_cost(quantity, unit_price, storage_rate, interest_rate, years):
+    """Compute total storage cost given rates and time."""
+    quantity = float(quantity)
+    unit_price = float(unit_price)
+    storage_rate = float(storage_rate)
+    interest_rate = float(interest_rate)
+    years = float(years)
+    return quantity * unit_price * (storage_rate + interest_rate) * years
+
+
 # ---------------------------------------------------------------------------
 # Data input section
 # ---------------------------------------------------------------------------
@@ -212,4 +222,20 @@ if st.button("Calculate EAD"):
                 )
             else:
                 st.success(f"{col} Expected Annual Damage: ${val:,.2f}")
+
+
+# ---------------------------------------------------------------------------
+# Cost of storage calculator
+# ---------------------------------------------------------------------------
+st.header("Cost of Storage Calculator")
+with st.form("storage_form"):
+    quantity = st.number_input("Quantity", min_value=0.0, value=100.0)
+    unit_price = st.number_input("Unit price", min_value=0.0, value=10.0)
+    storage_rate = st.number_input("Annual storage cost (%)", min_value=0.0, value=2.0) / 100
+    interest_rate = st.number_input("Annual interest rate (%)", min_value=0.0, value=5.0) / 100
+    years = st.number_input("Years in storage", min_value=0.0, value=1.0)
+    compute_storage = st.form_submit_button("Compute storage cost")
+if compute_storage:
+    cost = storage_cost(quantity, unit_price, storage_rate, interest_rate, years)
+    st.success(f"Total storage cost: ${cost:,.2f}")
 
