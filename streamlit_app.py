@@ -3,6 +3,10 @@ import numpy as np
 import pandas as pd
 from io import BytesIO
 
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.chart import LineChart, Reference
+
 st.title("Expected Annual Damage (EAD) Calculator")
 st.write(
     "Compute expected annual damages using the U.S. Army Corps of Engineers trapezoidal method."
@@ -87,6 +91,7 @@ if submitted:
 
 # Plot damage-frequency curve
 damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
+charts_for_export = []
 chart_data = (
     st.session_state.table.dropna(subset=["Frequency"])
     .sort_values("Frequency")
@@ -96,6 +101,12 @@ if not chart_data.empty and damage_cols:
     st.subheader("Damage-Frequency Curve")
     selected_damage = st.selectbox("Select damage column", damage_cols, key="df_damage")
     st.line_chart(chart_data[[selected_damage]])
+    charts_for_export.append(
+        {
+            "title": "Damage-Frequency Curve",
+            "data": chart_data[[selected_damage]].reset_index(),
+        }
+    )
 
 # Plot stage-related curves
 if "Stage" in st.session_state.table.columns:
@@ -111,16 +122,52 @@ if "Stage" in st.session_state.table.columns:
                 "Select damage column (stage)", damage_cols, key="stage_damage"
             )
             st.line_chart(stage_df[[dmg_col]])
+            charts_for_export.append(
+                {
+                    "title": "Stage-Damage Curve",
+                    "data": stage_df[[dmg_col]].reset_index(),
+                }
+            )
         if "Frequency" in stage_df.columns:
             st.subheader("Stage-Frequency Curve")
             st.line_chart(stage_df["Frequency"])
+            charts_for_export.append(
+                {
+                    "title": "Stage-Frequency Curve",
+                    "data": stage_df[["Frequency"]].reset_index(),
+                }
+            )
 
-# Export table to Excel
+# Export table and charts to Excel
 buffer = BytesIO()
-st.session_state.table.to_excel(buffer, index=False)
+wb = Workbook()
+ws_data = wb.active
+ws_data.title = "Data"
+for row in dataframe_to_rows(st.session_state.table, index=False, header=True):
+    ws_data.append(row)
+
+if charts_for_export:
+    ws_charts = wb.create_sheet("Charts")
+    for chart_info in charts_for_export:
+        df_chart = chart_info["data"]
+        start_row = ws_charts.max_row + 2 if ws_charts.max_row > 1 else 1
+        for row in dataframe_to_rows(df_chart, index=False, header=True):
+            ws_charts.append(row)
+        end_row = start_row + len(df_chart)
+        chart = LineChart()
+        chart.title = chart_info["title"]
+        chart.y_axis.title = df_chart.columns[1]
+        chart.x_axis.title = df_chart.columns[0]
+        data_ref = Reference(ws_charts, min_col=2, min_row=start_row, max_row=end_row)
+        chart.add_data(data_ref, titles_from_data=True)
+        cats_ref = Reference(ws_charts, min_col=1, min_row=start_row + 1, max_row=end_row)
+        chart.set_categories(cats_ref)
+        ws_charts.add_chart(chart, f"E{start_row}")
+
+wb.save(buffer)
 buffer.seek(0)
 st.download_button(
-    label="Download table as Excel",
+    label="Download data and charts as Excel",
     data=buffer,
     file_name="ead_data.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
