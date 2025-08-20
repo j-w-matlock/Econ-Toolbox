@@ -45,6 +45,28 @@ def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
     total_usable_storage = float(total_usable_storage)
     return (tc - sp) * storage_reallocated / total_usable_storage
 
+def present_value(values, rate):
+    """Return present value of a sequence of annual values.
+
+    Uses the discounting conventions of OMB Circular A-94
+    (*Guidelines and Discount Rates for Benefit-Cost Analysis of Federal Programs*, 1992).
+    """
+    values = np.asarray(values, dtype=float)
+    years = np.arange(len(values))
+    return float(np.sum(values / ((1 + rate) ** years)))
+
+
+def benefit_cost_analysis(costs, benefit_arrays, rate):
+    """Compute PV of costs and benefits, net benefits, and benefit-cost ratio.
+
+    Follows the National Economic Development (NED) procedures in
+    USACE's *Planning Guidance Notebook* (ER 1105-2-100, 2000).
+    """
+    pv_costs = present_value(costs, rate)
+    pv_benefits = sum(present_value(b, rate) for b in benefit_arrays)
+    net_benefits = pv_benefits - pv_costs
+    bcr = pv_benefits / pv_costs if pv_costs else np.nan
+    return pv_costs, pv_benefits, net_benefits, bcr
 
 # ---------------------------------------------------------------------------
 # Data input section
@@ -305,4 +327,75 @@ with st.form("storage_form"):
 if compute_storage:
     cost = updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage)
     st.success(f"Updated cost of storage: ${cost:,.2f}")
+
+# ---------------------------------------------------------------------------
+# Benefit-Cost Analysis calculator
+# ---------------------------------------------------------------------------
+st.header("Benefit-Cost Analysis")
+st.caption(
+    "Reference: OMB Circular A-94 (1992) and USACE's Planning Guidance Notebook (ER 1105-2-100, 2000)."
+)
+st.info(
+    "Provide annual costs and benefit categories to compute present values, "
+    "net benefits, and the benefit-cost ratio."
+)
+
+if "bca_num_benefits" not in st.session_state:
+    st.session_state.bca_num_benefits = 1
+
+if "bca_table" not in st.session_state:
+    st.session_state.bca_table = pd.DataFrame(
+        {"Year": [0, 1, 2], "Cost": [0.0, 0.0, 0.0], "Benefit 1": [0.0, 0.0, 0.0]}
+    )
+
+if st.button(
+    "Add benefit column",
+    help="Insert another benefit category (e.g., navigation, recreation, ecosystem restoration, water supply).",
+):
+    st.session_state.bca_num_benefits += 1
+    st.session_state.bca_table[f"Benefit {st.session_state.bca_num_benefits}"] = [0.0] * len(
+        st.session_state.bca_table
+    )
+
+with st.form("bca_table_form"):
+    bca_data = st.data_editor(
+        st.session_state.bca_table,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="bca_table_editor",
+        column_config={
+            "Year": st.column_config.NumberColumn("Year", min_value=0, step=1),
+            "Cost": st.column_config.NumberColumn("Cost", format="$%d", step=1000),
+            **{
+                col: st.column_config.NumberColumn(col, format="$%d", step=1000)
+                for col in st.session_state.bca_table.columns
+                if col.startswith("Benefit")
+            },
+        },
+        help="Enter annual costs and benefits in constant dollars.",
+    )
+    save_bca = st.form_submit_button("Save BCA table", help="Apply edits to the table above.")
+if save_bca:
+    st.session_state.bca_table = bca_data
+
+discount_rate = st.number_input(
+    "Real discount rate",
+    min_value=0.0,
+    value=0.07,
+    step=0.001,
+    help="OMB Circular A-94 real discount rate (e.g., 0.07 for 7%).",
+)
+
+if st.button(
+    "Compute BCA",
+    help="Calculate present values, net benefits, and benefit-cost ratio.",
+):
+    df_bca = st.session_state.bca_table.fillna(0).sort_values("Year")
+    costs = df_bca["Cost"].to_numpy()
+    benefit_arrays = [df_bca[col].to_numpy() for col in df_bca.columns if col.startswith("Benefit")]
+    pv_costs, pv_bens, net_bens, bcr = benefit_cost_analysis(costs, benefit_arrays, discount_rate)
+    st.success(f"Present value of costs: ${pv_costs:,.2f}")
+    st.success(f"Present value of benefits: ${pv_bens:,.2f}")
+    st.success(f"Net benefits: ${net_bens:,.2f}")
+    st.success(f"Benefit-Cost Ratio: {bcr:,.2f}")
 
