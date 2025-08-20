@@ -50,13 +50,13 @@ def build_excel():
     buffer = BytesIO()
     wb = Workbook()
 
-    # Data sheet
-    ws_data = wb.active
-    ws_data.title = "Data"
+    # EAD inputs sheet
+    ws_ead_inputs = wb.active
+    ws_ead_inputs.title = "EAD Inputs"
     table = st.session_state.get("table")
     if isinstance(table, pd.DataFrame):
         for row in dataframe_to_rows(table, index=False, header=True):
-            ws_data.append(row)
+            ws_ead_inputs.append(row)
 
     # Charts sheet
     charts_for_export = st.session_state.get("charts_for_export", [])
