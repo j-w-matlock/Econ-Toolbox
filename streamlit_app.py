@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from io import BytesIO
+from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -44,7 +45,101 @@ def capital_recovery_factor(rate, periods):
     return rate * (1 + rate) ** periods / ((1 + rate) ** periods - 1)
 
 
-def calculator_tab():
+def build_excel():
+    """Assemble all inputs, results, and README into an Excel workbook."""
+    buffer = BytesIO()
+    wb = Workbook()
+
+    # Data sheet
+    ws_data = wb.active
+    ws_data.title = "Data"
+    table = st.session_state.get("table")
+    if isinstance(table, pd.DataFrame):
+        for row in dataframe_to_rows(table, index=False, header=True):
+            ws_data.append(row)
+
+    # Charts sheet
+    charts_for_export = st.session_state.get("charts_for_export", [])
+    if charts_for_export:
+        ws_charts = wb.create_sheet("Charts")
+        for chart_info in charts_for_export:
+            df_chart = chart_info["data"]
+            start_row = ws_charts.max_row + 2 if ws_charts.max_row > 1 else 1
+            for row in dataframe_to_rows(df_chart, index=False, header=True):
+                ws_charts.append(row)
+            end_row = start_row + len(df_chart)
+            chart = LineChart()
+            chart.title = chart_info["title"]
+            chart.y_axis.title = df_chart.columns[1]
+            chart.x_axis.title = df_chart.columns[0]
+            data_ref = Reference(
+                ws_charts, min_col=2, min_row=start_row, max_row=end_row
+            )
+            chart.add_data(data_ref, titles_from_data=True)
+            cats_ref = Reference(
+                ws_charts, min_col=1, min_row=start_row + 1, max_row=end_row
+            )
+            chart.set_categories(cats_ref)
+            ws_charts.add_chart(chart, f"E{start_row}")
+
+    # EAD results
+    if st.session_state.get("ead_results"):
+        ws_ead = wb.create_sheet("EAD Results")
+        for k, v in st.session_state.ead_results.items():
+            ws_ead.append([k, v])
+
+    # Updated storage inputs and result
+    if st.session_state.get("storage_inputs") or st.session_state.get("storage_cost"):
+        ws_storage = wb.create_sheet("Updated Storage")
+        for k, v in st.session_state.get("storage_inputs", {}).items():
+            ws_storage.append([k, v])
+        if "storage_cost" in st.session_state:
+            ws_storage.append(["Updated cost of storage", st.session_state.storage_cost])
+
+    # Annualizer inputs, future costs, and summary
+    if (
+        st.session_state.get("annualizer_inputs")
+        or st.session_state.get("future_costs_df") is not None
+        or st.session_state.get("annualizer_summary")
+    ):
+        ws_ann = wb.create_sheet("Annualizer")
+        for k, v in st.session_state.get("annualizer_inputs", {}).items():
+            ws_ann.append([k, v])
+        if st.session_state.get("annualizer_inputs"):
+            ws_ann.append([])
+        future_df = st.session_state.get("future_costs_df", pd.DataFrame())
+        if not future_df.empty:
+            for row in dataframe_to_rows(future_df, index=False, header=True):
+                ws_ann.append(row)
+            ws_ann.append([])
+        for k, v in st.session_state.get("annualizer_summary", {}).items():
+            ws_ann.append([k, v])
+
+    # README sheet
+    readme_lines = Path("README.md").read_text().splitlines()
+    ws_readme = wb.create_sheet("README")
+    for line in readme_lines:
+        ws_readme.append([line])
+
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def export_button():
+    """Render a download button for the current workbook."""
+    buffer = build_excel()
+    st.download_button(
+        label="Export to Excel",
+        data=buffer,
+        file_name="econ_toolbox.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        help="Export all inputs, results, and the README as an Excel file.",
+    )
+
+
+def ead_calculator():
+    """EAD calculator with data entry, charts, and results."""
     st.write(
         "Compute expected annual damages using the U.S. Army Corps of Engineers trapezoidal method."
     )
@@ -52,13 +147,9 @@ def calculator_tab():
         "Reference: U.S. Army Corps of Engineers, Engineering Manual 1110-2-1619 (1996)."
     )
 
-    # ------------------------------------------------------------------
-    # Data input section
-    # ------------------------------------------------------------------
     st.subheader("Inputs")
     st.info(
-        "Fill in the frequency and damage values below. Use the checkbox to add a stage "
-        "column and the button to insert additional damage columns as needed."
+        "Fill in the frequency and damage values below. Use the checkbox to add a stage column and the button to insert additional damage columns as needed."
     )
 
     if "num_damage_cols" not in st.session_state:
@@ -92,7 +183,10 @@ def calculator_tab():
     elif not include_stage and "Stage" in st.session_state.table.columns:
         st.session_state.table.drop(columns="Stage", inplace=True)
 
-    if st.button("Add damage column", help="Insert another damage column to compare scenarios."):
+    if st.button(
+        "Add damage column",
+        help="Insert another damage column to compare scenarios.",
+    ):
         st.session_state.num_damage_cols += 1
         st.session_state.table[f"Damage {st.session_state.num_damage_cols}"] = [
             None
@@ -180,13 +274,9 @@ def calculator_tab():
 
     st.session_state.charts_for_export = charts_for_export
 
-    # ------------------------------------------------------------------
-    # EAD calculation
-    # ------------------------------------------------------------------
     st.subheader("EAD Results")
     st.info(
-        "Click the button below to compute expected annual damages for each damage "
-        "column using trapezoidal integration."
+        "Click the button below to compute expected annual damages for each damage column using trapezoidal integration."
     )
     if st.button(
         "Calculate EAD",
@@ -200,13 +290,17 @@ def calculator_tab():
             st.warning("Frequencies should start at 1 and monotonically decrease to 0.")
         missing_zero = freq[-1] != 0
         if missing_zero:
-            st.info("Final frequency not 0; appending zero-frequency point using last damage value.")
+            st.info(
+                "Final frequency not 0; appending zero-frequency point using last damage value."
+            )
         results = {}
         for col in df.columns:
             if col.startswith("Damage"):
                 damages = df[col].fillna(0).to_numpy()
                 freq_use = np.append(freq, 0.0) if missing_zero else freq
-                damages_use = np.append(damages, damages[-1]) if missing_zero else damages
+                damages_use = (
+                    np.append(damages, damages[-1]) if missing_zero else damages
+                )
                 if len(freq_use) >= 2 and len(freq_use) == len(damages_use):
                     results[col] = ead_trapezoidal(freq_use, damages_use)
                 else:
@@ -221,17 +315,19 @@ def calculator_tab():
                     )
                 else:
                     st.success(f"{col} Expected Annual Damage: ${val:,.2f}")
+        st.session_state.ead_results = results
 
-    # ------------------------------------------------------------------
-    # Updated cost of storage calculator
-    # ------------------------------------------------------------------
+    export_button()
+
+
+def storage_calculator():
+    """Updated cost of storage calculator."""
     st.header("Updated Cost of Storage Calculator")
     st.caption(
         "Reference: Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR)."
     )
-    st.info(
-        "Estimate the updated cost of storage for a reservoir reallocation."
-    )
+    st.info("Estimate the updated cost of storage for a reservoir reallocation.")
+
     with st.form("storage_form"):
         tc = st.number_input(
             "Total construction cost (TC)",
@@ -261,14 +357,25 @@ def calculator_tab():
             "Compute updated cost",
             help="Calculate the updated cost of storage.",
         )
+
     if compute_storage:
-        cost = updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage)
+        cost = updated_storage_cost(
+            tc, sp, storage_reallocated, total_usable_storage
+        )
         st.success(f"Updated cost of storage: ${cost:,.2f}")
         st.session_state.storage_cost = cost
+        st.session_state.storage_inputs = {
+            "Total construction cost (TC)": tc,
+            "Specific costs (SP)": sp,
+            "Storage reallocated (ac-ft)": storage_reallocated,
+            "Total usable storage space (ac-ft)": total_usable_storage,
+        }
 
-    # ------------------------------------------------------------------
-    # Project cost annualizer
-    # ------------------------------------------------------------------
+    export_button()
+
+
+def annualizer_calculator():
+    """Project cost annualizer."""
     st.header("Project Cost Annualizer")
     st.info("Calculate annualized project costs and benefit-cost ratio.")
 
@@ -279,20 +386,34 @@ def calculator_tab():
         st.session_state.num_future_costs += 1
 
     with st.form("annualizer_form"):
-        first_cost = st.number_input("Project First Cost ($)", min_value=0.0, value=0.0)
-        real_estate_cost = st.number_input("Real Estate Cost ($)", min_value=0.0, value=0.0)
+        first_cost = st.number_input(
+            "Project First Cost ($)", min_value=0.0, value=0.0
+        )
+        real_estate_cost = st.number_input(
+            "Real Estate Cost ($)", min_value=0.0, value=0.0
+        )
         ped_cost = st.number_input("PED Cost ($)", min_value=0.0, value=0.0)
-        monitoring_cost = st.number_input("Monitoring Cost ($)", min_value=0.0, value=0.0)
+        monitoring_cost = st.number_input(
+            "Monitoring Cost ($)", min_value=0.0, value=0.0
+        )
         idc_rate = st.number_input(
-            "Interest Rate (%) - For Interest During Construction", min_value=0.0, value=0.0
+            "Interest Rate (%) - For Interest During Construction",
+            min_value=0.0,
+            value=0.0,
         )
         construction_months = st.number_input(
             "Construction Period (Months)", min_value=0.0, value=0.0
         )
-        annual_om = st.number_input("Annual O&M Cost ($)", min_value=0.0, value=0.0)
-        annual_benefits = st.number_input("Benefits (Annual, $)", min_value=0.0, value=0.0)
+        annual_om = st.number_input(
+            "Annual O&M Cost ($)", min_value=0.0, value=0.0
+        )
+        annual_benefits = st.number_input(
+            "Benefits (Annual, $)", min_value=0.0, value=0.0
+        )
         base_year = st.number_input("Base Year (Year)", min_value=0, step=1, value=0)
-        discount_rate = st.number_input("Discount Rate (%)", min_value=0.0, value=0.0)
+        discount_rate = st.number_input(
+            "Discount Rate (%)", min_value=0.0, value=0.0
+        )
         period_analysis = st.number_input(
             "Period of Analysis (Years)", min_value=1, step=1, value=1
         )
@@ -300,10 +421,17 @@ def calculator_tab():
         future_costs = []
         for i in range(st.session_state.num_future_costs):
             cost = st.number_input(
-                f"Planned Future Cost {i + 1} ($)", min_value=0.0, value=0.0, key=f"fcost_{i}"
+                f"Planned Future Cost {i + 1} ($)",
+                min_value=0.0,
+                value=0.0,
+                key=f"fcost_{i}",
             )
             year = st.number_input(
-                f"Year of Cost {i + 1}", min_value=0, step=1, value=base_year, key=f"fyear_{i}"
+                f"Year of Cost {i + 1}",
+                min_value=0,
+                step=1,
+                value=base_year,
+                key=f"fyear_{i}",
             )
             future_costs.append((cost, year))
 
@@ -311,7 +439,9 @@ def calculator_tab():
 
     if compute_annual:
         initial_cost = first_cost + real_estate_cost + ped_cost + monitoring_cost
-        idc = interest_during_construction(initial_cost, idc_rate / 100.0, construction_months)
+        idc = interest_during_construction(
+            initial_cost, idc_rate / 100.0, construction_months
+        )
         total_initial = initial_cost + idc
         dr = discount_rate / 100.0
         future_details = []
@@ -357,92 +487,40 @@ def calculator_tab():
             "Annual Cost including O&M": annual_total,
             "Benefit-Cost Ratio": bcr,
         }
+        st.session_state.annualizer_inputs = {
+            "Project First Cost ($)": first_cost,
+            "Real Estate Cost ($)": real_estate_cost,
+            "PED Cost ($)": ped_cost,
+            "Monitoring Cost ($)": monitoring_cost,
+            "Interest Rate (%)": idc_rate,
+            "Construction Period (Months)": construction_months,
+            "Annual O&M Cost ($)": annual_om,
+            "Benefits (Annual, $)": annual_benefits,
+            "Base Year": base_year,
+            "Discount Rate (%)": discount_rate,
+            "Period of Analysis (Years)": period_analysis,
+        }
 
-    # ------------------------------------------------------------------
-    # Export to Excel
-    # ------------------------------------------------------------------
-    buffer = BytesIO()
-    wb = Workbook()
-    ws_data = wb.active
-    ws_data.title = "Data"
-    for row in dataframe_to_rows(st.session_state.table, index=False, header=True):
-        ws_data.append(row)
-
-    charts_for_export = st.session_state.get("charts_for_export", [])
-    if charts_for_export:
-        ws_charts = wb.create_sheet("Charts")
-        for chart_info in charts_for_export:
-            df_chart = chart_info["data"]
-            start_row = ws_charts.max_row + 2 if ws_charts.max_row > 1 else 1
-            for row in dataframe_to_rows(df_chart, index=False, header=True):
-                ws_charts.append(row)
-            end_row = start_row + len(df_chart)
-            chart = LineChart()
-            chart.title = chart_info["title"]
-            chart.y_axis.title = df_chart.columns[1]
-            chart.x_axis.title = df_chart.columns[0]
-            data_ref = Reference(ws_charts, min_col=2, min_row=start_row, max_row=end_row)
-            chart.add_data(data_ref, titles_from_data=True)
-            cats_ref = Reference(ws_charts, min_col=1, min_row=start_row + 1, max_row=end_row)
-            chart.set_categories(cats_ref)
-            ws_charts.add_chart(chart, f"E{start_row}")
-
-    if "future_costs_df" in st.session_state:
-        ws_ann = wb.create_sheet("Annualizer")
-        future_df = st.session_state.future_costs_df
-        if not future_df.empty:
-            for row in dataframe_to_rows(future_df, index=False, header=True):
-                ws_ann.append(row)
-            ws_ann.append([])
-        summary = st.session_state.get("annualizer_summary")
-        if summary:
-            for k, v in summary.items():
-                ws_ann.append([k, v])
-
-    if "storage_cost" in st.session_state:
-        ws_storage = wb.create_sheet("Updated Storage")
-        ws_storage.append(["Updated cost of storage", st.session_state.storage_cost])
-
-    wb.save(buffer)
-    buffer.seek(0)
-    st.download_button(
-        label="Export to Excel",
-        data=buffer,
-        file_name="econ_toolbox.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        help="Export the current data and results as an Excel file.",
-    )
+    export_button()
 
 
-tab_calc, tab_readme = st.tabs(["Calculator", "ReadMe"])
-with tab_calc:
-    calculator_tab()
+def readme_page():
+    """Display repository README."""
+    st.header("ReadMe")
+    st.markdown(Path("README.md").read_text())
 
-with tab_readme:
-    st.markdown(
-        """
-        ## Methodology
 
-        ### Expected Annual Damage (EAD)
-        The trapezoidal rule integrates damages over exceedance probabilities:
-        $$EAD = \sum \tfrac{1}{2} (D_i + D_{i+1})(P_i - P_{i+1})$$
+section = st.sidebar.radio(
+    "Navigate",
+    ["EAD Calculator", "Updated Storage Cost", "Project Annualizer", "ReadMe"],
+)
 
-        ### Updated Cost of Storage
-        $$ \text{Updated Cost} = \frac{(TC - SP) \times \text{Storage Reallocated}}{\text{Total Usable Storage}} $$
-
-        ### Interest During Construction
-        Interest accrues over one-eighth of the construction period:
-        $$ IDC = \text{Total Initial Cost} \times r \times \frac{T}{8} $$
-        where $r$ is the interest rate and $T$ is construction time in years.
-
-        ### Capital Recovery Factor
-        $$ CRF = \frac{r(1+r)^n}{(1+r)^n - 1} $$
-        converts a present value to an equivalent annual amount over $n$ periods.
-
-        ### Present Value of Future Costs
-        Each future cost is discounted to the base year:
-        $$ PV = C \times (1+r)^{-(t - t_0)} $$
-        The present values are summed and annualized using the capital recovery factor.
-        """
-    )
+if section == "EAD Calculator":
+    ead_calculator()
+elif section == "Updated Storage Cost":
+    storage_calculator()
+elif section == "Project Annualizer":
+    annualizer_calculator()
+else:
+    readme_page()
 
