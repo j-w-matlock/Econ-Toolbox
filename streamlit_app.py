@@ -45,28 +45,18 @@ def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
     total_usable_storage = float(total_usable_storage)
     return (tc - sp) * storage_reallocated / total_usable_storage
 
-def present_value(values, rate):
-    """Return present value of a sequence of annual values.
 
-    Uses the discounting conventions of OMB Circular A-94
-    (*Guidelines and Discount Rates for Benefit-Cost Analysis of Federal Programs*, 1992).
-    """
-    values = np.asarray(values, dtype=float)
-    years = np.arange(len(values))
-    return float(np.sum(values / ((1 + rate) ** years)))
+def interest_during_construction(total_initial_cost, rate, months):
+    """Compute interest during construction assuming uniform expenditures."""
+    years = months / 12.0
+    return total_initial_cost * rate * years / 2
 
 
-def benefit_cost_analysis(costs, benefit_arrays, rate):
-    """Compute PV of costs and benefits, net benefits, and benefit-cost ratio.
-
-    Follows the National Economic Development (NED) procedures in
-    USACE's *Planning Guidance Notebook* (ER 1105-2-100, 2000).
-    """
-    pv_costs = present_value(costs, rate)
-    pv_benefits = sum(present_value(b, rate) for b in benefit_arrays)
-    net_benefits = pv_benefits - pv_costs
-    bcr = pv_benefits / pv_costs if pv_costs else np.nan
-    return pv_costs, pv_benefits, net_benefits, bcr
+def capital_recovery_factor(rate, periods):
+    """Return capital recovery factor for a given discount rate and period."""
+    if rate == 0:
+        return 1 / periods
+    return rate * (1 + rate) ** periods / ((1 + rate) ** periods - 1)
 
 # ---------------------------------------------------------------------------
 # Data input section
@@ -329,73 +319,66 @@ if compute_storage:
     st.success(f"Updated cost of storage: ${cost:,.2f}")
 
 # ---------------------------------------------------------------------------
-# Benefit-Cost Analysis calculator
+# Project cost annualizer
 # ---------------------------------------------------------------------------
-st.header("Benefit-Cost Analysis")
-st.caption(
-    "Reference: OMB Circular A-94 (1992) and USACE's Planning Guidance Notebook (ER 1105-2-100, 2000)."
-)
-st.info(
-    "Provide annual costs and benefit categories to compute present values, "
-    "net benefits, and the benefit-cost ratio."
-)
+st.header("Project Cost Annualizer")
+st.info("Calculate annualized project costs and benefit-cost ratio.")
 
-if "bca_num_benefits" not in st.session_state:
-    st.session_state.bca_num_benefits = 1
+if "num_future_costs" not in st.session_state:
+    st.session_state.num_future_costs = 0
 
-if "bca_table" not in st.session_state:
-    st.session_state.bca_table = pd.DataFrame(
-        {"Year": [0, 1, 2], "Cost": [0.0, 0.0, 0.0], "Benefit 1": [0.0, 0.0, 0.0]}
+if st.button("Add planned future cost"):
+    st.session_state.num_future_costs += 1
+
+with st.form("annualizer_form"):
+    first_cost = st.number_input("Project First Cost ($)", min_value=0.0, value=0.0)
+    real_estate_cost = st.number_input("Real Estate Cost ($)", min_value=0.0, value=0.0)
+    ped_cost = st.number_input("PED Cost ($)", min_value=0.0, value=0.0)
+    monitoring_cost = st.number_input("Monitoring Cost ($)", min_value=0.0, value=0.0)
+    idc_rate = st.number_input(
+        "Interest Rate (%) - For Interest During Construction", min_value=0.0, value=0.0
+    )
+    construction_months = st.number_input(
+        "Construction Period (Months)", min_value=0.0, value=0.0
+    )
+    annual_om = st.number_input("Annual O&M Cost ($)", min_value=0.0, value=0.0)
+    annual_benefits = st.number_input("Benefits (Annual, $)", min_value=0.0, value=0.0)
+    base_year = st.number_input("Base Year (Year)", min_value=0, step=1, value=0)
+    discount_rate = st.number_input("Discount Rate (%)", min_value=0.0, value=0.0)
+    period_analysis = st.number_input(
+        "Period of Analysis (Years)", min_value=1, step=1, value=1
     )
 
-if st.button(
-    "Add benefit column",
-    help="Insert another benefit category (e.g., navigation, recreation, ecosystem restoration, water supply).",
-):
-    st.session_state.bca_num_benefits += 1
-    st.session_state.bca_table[f"Benefit {st.session_state.bca_num_benefits}"] = [0.0] * len(
-        st.session_state.bca_table
+    future_costs = []
+    for i in range(st.session_state.num_future_costs):
+        cost = st.number_input(
+            f"Planned Future Cost {i + 1} ($)", min_value=0.0, value=0.0, key=f"fcost_{i}"
+        )
+        year = st.number_input(
+            f"Year of Cost {i + 1}", min_value=0, step=1, value=base_year, key=f"fyear_{i}"
+        )
+        future_costs.append((cost, year))
+
+    compute_annual = st.form_submit_button("Compute Annual Costs")
+
+if compute_annual:
+    initial_cost = first_cost + real_estate_cost + ped_cost + monitoring_cost
+    idc = interest_during_construction(initial_cost, idc_rate / 100.0, construction_months)
+    total_initial = initial_cost + idc
+    dr = discount_rate / 100.0
+    pv_future = sum(
+        cost / ((1 + dr) ** (year - base_year)) for cost, year in future_costs
     )
-
-with st.form("bca_table_form"):
-    st.caption("Enter annual costs and benefits in constant dollars.")
-    bca_data = st.data_editor(
-        st.session_state.bca_table,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="bca_table_editor",
-        column_config={
-            "Year": st.column_config.NumberColumn("Year", min_value=0, step=1),
-            "Cost": st.column_config.NumberColumn("Cost", format="$%d", step=1000),
-            **{
-                col: st.column_config.NumberColumn(col, format="$%d", step=1000)
-                for col in st.session_state.bca_table.columns
-                if col.startswith("Benefit")
-            },
-        },
+    total_investment = total_initial + pv_future
+    crf = capital_recovery_factor(dr, period_analysis)
+    annual_construction = total_investment * crf
+    annual_total = annual_construction + annual_om
+    bcr = annual_benefits / annual_total if annual_total else np.nan
+    st.success(f"Interest During Construction: ${idc:,.2f}")
+    st.success(f"Total Cost/Investment: ${total_investment:,.2f}")
+    st.success(f"Capital Recovery Factor: {crf:.4f}")
+    st.success(
+        f"Annual Construction Cost including O&M: ${annual_total:,.2f}"
     )
-    save_bca = st.form_submit_button("Save BCA table", help="Apply edits to the table above.")
-if save_bca:
-    st.session_state.bca_table = bca_data
-
-discount_rate = st.number_input(
-    "Real discount rate",
-    min_value=0.0,
-    value=0.07,
-    step=0.001,
-    help="OMB Circular A-94 real discount rate (e.g., 0.07 for 7%).",
-)
-
-if st.button(
-    "Compute BCA",
-    help="Calculate present values, net benefits, and benefit-cost ratio.",
-):
-    df_bca = st.session_state.bca_table.fillna(0).sort_values("Year")
-    costs = df_bca["Cost"].to_numpy()
-    benefit_arrays = [df_bca[col].to_numpy() for col in df_bca.columns if col.startswith("Benefit")]
-    pv_costs, pv_bens, net_bens, bcr = benefit_cost_analysis(costs, benefit_arrays, discount_rate)
-    st.success(f"Present value of costs: ${pv_costs:,.2f}")
-    st.success(f"Present value of benefits: ${pv_bens:,.2f}")
-    st.success(f"Net benefits: ${net_bens:,.2f}")
     st.success(f"Benefit-Cost Ratio: {bcr:,.2f}")
 

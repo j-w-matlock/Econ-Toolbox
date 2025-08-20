@@ -1,9 +1,8 @@
 # 🎈 Economic toolbox
 
 A Streamlit application featuring an Expected Annual Damage (EAD) calculator,
-an updated cost of storage calculator, and a benefit–cost analysis module that
-accommodates additional project benefits (navigation, recreation, ecosystem
-restoration, water supply, etc.).
+an updated cost of storage calculator, and a project cost annualizer that
+produces annualized construction costs and benefit–cost ratios.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 
