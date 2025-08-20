@@ -47,9 +47,18 @@ def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
 
 
 def interest_during_construction(total_initial_cost, rate, months):
-    """Compute interest during construction assuming uniform expenditures."""
+    """Compute interest during construction.
+
+    The first month's expenditure is assumed to occur at the beginning of the
+    month, while all subsequent months are treated as occurring at their
+    midpoints.  Under this timing convention the average period that funds
+    accrue interest is one‑eighth of the construction duration.
+    """
+    if months <= 0:
+        return 0.0
     years = months / 12.0
-    return total_initial_cost * rate * years / 2
+    # Average interest period is one-eighth of the total construction time
+    return total_initial_cost * rate * years / 8
 
 
 def capital_recovery_factor(rate, periods):
