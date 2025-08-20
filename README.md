@@ -38,7 +38,7 @@ integrate the damage–frequency curve.
 ### Updated Cost of Storage
 
 \[
-\text{Updated Cost} = (TC - SP) \times \frac{S_r}{S_t}
+\text{Updated Cost} = (TC - SP) \cdot \frac{S_r}{S_t}
 \]
 
 with total construction cost \(TC\), specific costs \(SP\), storage reallocated
@@ -47,7 +47,7 @@ with total construction cost \(TC\), specific costs \(SP\), storage reallocated
 ### Interest During Construction (IDC)
 
 \[
-\text{IDC} = T \times r \times \frac{m/12}{8}
+\text{IDC} = T \cdot r \cdot \frac{m}{12} \cdot \frac{1}{8}
 \]
 
 where \(T\) is the total initial cost excluding IDC, \(r\) is the interest rate
@@ -57,7 +57,7 @@ factor of eight assumes expenditures are spread evenly over the period.
 ### Present Value of Planned Future Costs
 
 \[
-PV = C \times (1 + r)^{-(y - b)}
+PV = C \cdot (1 + r)^{-(y - b)}
 \]
 
 where \(C\) is a cost incurred in year \(y\), \(r\) is the discount rate, and
@@ -76,7 +76,7 @@ for discount rate \(r\) and period of analysis \(n\) years. If \(r = 0\), then
 
 \[
 \begin{aligned}
-\text{Annual Construction} &= \text{Total Investment} \times CRF \\
+\text{Annual Construction} &= \text{Total Investment} \cdot CRF \\
 \text{Annual Total Cost} &= \text{Annual Construction} + \text{Annual O\&M} \\
 \text{Benefit–Cost Ratio} &= \frac{\text{Annual Benefits}}{\text{Annual Total Cost}}
 \end{aligned}
