@@ -358,6 +358,7 @@ if st.button(
     )
 
 with st.form("bca_table_form"):
+    st.caption("Enter annual costs and benefits in constant dollars.")
     bca_data = st.data_editor(
         st.session_state.bca_table,
         num_rows="dynamic",
@@ -372,7 +373,6 @@ with st.form("bca_table_form"):
                 if col.startswith("Benefit")
             },
         },
-        help="Enter annual costs and benefits in constant dollars.",
     )
     save_bca = st.form_submit_button("Save BCA table", help="Apply edits to the table above.")
 if save_bca:
