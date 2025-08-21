@@ -87,6 +87,11 @@ def build_excel():
         ws_ead = wb.create_sheet("EAD Results")
         for k, v in st.session_state.ead_results.items():
             ws_ead.append([k, v])
+        diffs = st.session_state.get("ead_differences", {})
+        if diffs:
+            ws_ead.append([])
+            for k, v in diffs.items():
+                ws_ead.append([f"{k} - Damage 1", v])
 
     # Updated storage inputs and result
     if st.session_state.get("storage_inputs") or st.session_state.get("storage_cost"):
@@ -243,7 +248,8 @@ def ead_calculator():
     if "Stage" in st.session_state.table.columns:
         stage_df = (
             st.session_state.table.dropna(subset=["Stage"])
-            .sort_values("Stage")
+            .assign(Stage=lambda df: pd.to_numeric(df["Stage"], errors="coerce"))
+            .dropna(subset=["Stage"])
             .set_index("Stage")
         )
         if not stage_df.empty:
@@ -308,6 +314,8 @@ def ead_calculator():
         if not results:
             st.error("No damage columns found.")
         else:
+            base_ead = results.get("Damage 1")
+            differences = {}
             for col, val in results.items():
                 if val is None:
                     st.error(
@@ -315,7 +323,15 @@ def ead_calculator():
                     )
                 else:
                     st.success(f"{col} Expected Annual Damage: ${val:,.2f}")
-        st.session_state.ead_results = results
+                    if col != "Damage 1" and base_ead is not None:
+                        diff = val - base_ead
+                        differences[col] = diff
+                        sign = "+" if diff >= 0 else "-"
+                        st.info(
+                            f"Difference from Damage 1: {sign}${abs(diff):,.2f}"
+                        )
+            st.session_state.ead_results = results
+            st.session_state.ead_differences = differences
 
     export_button()
 
@@ -430,7 +446,7 @@ def annualizer_calculator():
                 f"Year of Cost {i + 1}",
                 min_value=0,
                 step=1,
-                value=base_year,
+                value=st.session_state.get(f"fyear_{i}", base_year),
                 key=f"fyear_{i}",
             )
             future_costs.append((cost, year))
