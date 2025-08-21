@@ -88,10 +88,15 @@ def build_excel():
         for k, v in st.session_state.ead_results.items():
             ws_ead.append([k, v])
         diffs = st.session_state.get("ead_differences", {})
+        pct_changes = st.session_state.get("ead_percent_changes", {})
         if diffs:
             ws_ead.append([])
             for k, v in diffs.items():
                 ws_ead.append([f"{k} - Damage 1", v])
+        if pct_changes:
+            ws_ead.append([])
+            for k, v in pct_changes.items():
+                ws_ead.append([f"{k} % change from Damage 1", v])
 
     # Updated storage inputs and result
     if st.session_state.get("storage_inputs") or st.session_state.get("storage_cost"):
@@ -316,6 +321,7 @@ def ead_calculator():
         else:
             base_ead = results.get("Damage 1")
             differences = {}
+            pct_changes = {}
             for col, val in results.items():
                 if val is None:
                     st.error(
@@ -326,12 +332,15 @@ def ead_calculator():
                     if col != "Damage 1" and base_ead is not None:
                         diff = val - base_ead
                         differences[col] = diff
+                        pct = (diff / base_ead * 100) if base_ead != 0 else np.nan
+                        pct_changes[col] = pct
                         sign = "+" if diff >= 0 else "-"
                         st.info(
-                            f"Difference from Damage 1: {sign}${abs(diff):,.2f}"
+                            f"Difference from Damage 1: {sign}${abs(diff):,.2f} ({pct:+.2f}%)"
                         )
             st.session_state.ead_results = results
             st.session_state.ead_differences = differences
+            st.session_state.ead_percent_changes = pct_changes
 
     export_button()
 
