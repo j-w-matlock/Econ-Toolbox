@@ -47,12 +47,17 @@ with total construction cost \(TC\), specific costs \(SP\), storage reallocated
 ### Interest During Construction (IDC)
 
 \[
-\text{IDC} = T \cdot r \cdot \frac{m}{12} \cdot \frac{1}{8}
+\text{IDC} = \sum_{i=1}^{m} C_i \cdot \frac{r}{12} \cdot t_i
 \]
 
-where \(T\) is the total initial cost excluding IDC, \(r\) is the interest rate
-expressed as a decimal, and \(m\) is the construction period in months. The
-factor of eight assumes expenditures are spread evenly over the period.
+where \(C_i\) is the cost incurred in month \(i\), \(r\) is the annual
+interest rate expressed as a decimal, \(m\) is the construction period in
+months, and \(t_i\) is the number of months the expenditure accrues interest.
+Beginning-, middle-, and end-of-month expenditures correspond to
+\(t_i = m - i + 1\), \(m - i + 0.5\), and \(m - i\), respectively. When costs
+are normalized across the construction period, \(C_i = T/m\) with the first
+month treated as a beginning-of-month expenditure and the remaining months at
+midpoints.
 
 ### Present Value of Planned Future Costs
 

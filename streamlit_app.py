@@ -30,12 +30,69 @@ def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
     return (tc - sp) * storage_reallocated / total_usable_storage
 
 
-def interest_during_construction(total_initial_cost, rate, months):
-    """Compute interest during construction."""
+def interest_during_construction(
+    total_initial_cost,
+    rate,
+    months,
+    *,
+    costs=None,
+    timings=None,
+    normalize=True,
+):
+    """Compute interest during construction (IDC).
+
+    Parameters
+    ----------
+    total_initial_cost : float
+        Total initial cost excluding IDC. Used when ``costs`` is not provided.
+    rate : float
+        Annual interest rate expressed as a decimal (e.g., ``0.05`` for 5%).
+    months : int
+        Construction period in months.
+    costs : list[float], optional
+        Explicit costs for each month. If provided, ``normalize`` is ignored.
+    timings : list[str], optional
+        Timing of each cost within the month: ``"beginning"``, ``"middle"``, or
+        ``"end"``. Defaults to ``"middle"`` for any unspecified timing.
+    normalize : bool, default ``True``
+        When ``True`` and ``costs`` is ``None``, the ``total_initial_cost`` is
+        distributed evenly across all months with the first month treated as a
+        beginning-of-month expenditure and remaining months at midpoints.
+
+    Returns
+    -------
+    float
+        Interest accrued during construction.
+    """
     if months <= 0:
         return 0.0
-    years = months / 12.0
-    return total_initial_cost * rate * years / 8
+
+    monthly_rate = rate / 12.0
+
+    if costs is None:
+        if not normalize:
+            # Legacy approximation assuming evenly spread costs.
+            years = months / 12.0
+            return total_initial_cost * rate * years / 8
+
+        monthly_cost = total_initial_cost / months
+        costs = [monthly_cost] * months
+        timings = ["beginning"] + ["middle"] * (months - 1)
+    else:
+        if timings is None:
+            timings = ["middle"] * len(costs)
+
+    idc = 0.0
+    for i, cost in enumerate(costs, start=1):
+        timing = timings[i - 1]
+        if timing == "beginning":
+            remaining = months - i + 1
+        elif timing == "end":
+            remaining = months - i
+        else:  # middle
+            remaining = months - i + 0.5
+        idc += cost * monthly_rate * remaining
+    return idc
 
 
 def capital_recovery_factor(rate, periods):
@@ -427,8 +484,34 @@ def annualizer_calculator():
             value=0.0,
         )
         construction_months = st.number_input(
-            "Construction Period (Months)", min_value=0.0, value=0.0
+            "Construction Period (Months)", min_value=0, value=0, step=1
         )
+        idc_method = st.radio(
+            "IDC Cost Distribution",
+            [
+                "Normalize over construction period",
+                "Specify per-period costs",
+            ],
+            index=0,
+        )
+        period_costs = []
+        period_timings = []
+        if idc_method == "Specify per-period costs":
+            for m in range(1, int(construction_months) + 1):
+                c = st.number_input(
+                    f"Cost in month {m} ($)",
+                    min_value=0.0,
+                    value=0.0,
+                    key=f"month_cost_{m}",
+                )
+                t = st.selectbox(
+                    f"Timing for month {m}",
+                    ["beginning", "middle", "end"],
+                    key=f"month_time_{m}",
+                    index=1,
+                )
+                period_costs.append(c)
+                period_timings.append(t)
         annual_om = st.number_input(
             "Annual O&M Cost ($)", min_value=0.0, value=0.0
         )
@@ -464,9 +547,19 @@ def annualizer_calculator():
 
     if compute_annual:
         initial_cost = first_cost + real_estate_cost + ped_cost + monitoring_cost
-        idc = interest_during_construction(
-            initial_cost, idc_rate / 100.0, construction_months
-        )
+        if idc_method == "Specify per-period costs":
+            idc = interest_during_construction(
+                initial_cost,
+                idc_rate / 100.0,
+                construction_months,
+                costs=period_costs,
+                timings=period_timings,
+                normalize=False,
+            )
+        else:
+            idc = interest_during_construction(
+                initial_cost, idc_rate / 100.0, construction_months
+            )
         total_initial = initial_cost + idc
         dr = discount_rate / 100.0
         future_details = []
@@ -519,6 +612,7 @@ def annualizer_calculator():
             "Monitoring Cost ($)": monitoring_cost,
             "Interest Rate (%)": idc_rate,
             "Construction Period (Months)": construction_months,
+            "IDC Cost Distribution": idc_method,
             "Annual O&M Cost ($)": annual_om,
             "Benefits (Annual, $)": annual_benefits,
             "Base Year": base_year,
