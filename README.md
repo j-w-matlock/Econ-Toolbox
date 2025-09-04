@@ -3,7 +3,7 @@
 A Streamlit application featuring an Expected Annual Damage (EAD) calculator,
 an updated cost of storage calculator, a project cost annualizer that produces
 annualized construction costs and benefit–cost ratios, and a Unit Day Value
-recreation benefit calculator.
+(UDV) analysis tab for estimating recreation benefits.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 
