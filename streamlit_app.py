@@ -638,63 +638,109 @@ def recreation_udv():
     """Unit Day Value recreation benefit calculator."""
     st.header("Recreation Benefit (Unit Day Value)")
     st.info(
-        "Estimate annual recreation benefits using USACE Unit Day Values (UDV)."
+        "Estimate annual recreation benefits using USACE Unit Day Values (UDV).",
     )
-
-    rec_type = st.selectbox(
-        "Recreation Type",
-        ["General", "Specialized"],
-        help="Select the type of recreation experience.",
-    )
-
-    if rec_type == "General":
-        udv_defaults = {
-            "A (High quality)": 18.0,
-            "B": 13.0,
-            "C": 9.0,
-            "D": 6.0,
-            "E": 4.0,
-            "F (Low quality)": 2.0,
+    tab_calc, tab_rank = st.tabs(["Calculator", "Ranking Criteria"])
+    with tab_calc:
+        rec_type = st.selectbox(
+            "Recreation Type",
+            ["General", "Specialized"],
+            help="Select the type of recreation experience.",
+        )
+        if rec_type == "General":
+            udv_defaults = {
+                "A (High quality)": 18.0,
+                "B": 13.0,
+                "C": 9.0,
+                "D": 6.0,
+                "E": 4.0,
+                "F (Low quality)": 2.0,
+            }
+        else:  # Specialized
+            udv_defaults = {
+                "A (High quality)": 40.0,
+                "B": 30.0,
+                "C": 20.0,
+                "D": 10.0,
+                "E": 5.0,
+                "F (Low quality)": 2.0,
+            }
+        category = st.selectbox(
+            "Quality Category",
+            list(udv_defaults.keys()),
+            help="Quality rating consistent with USACE guidance.",
+        )
+        udv_value = st.number_input(
+            "Unit Day Value ($/user day)",
+            min_value=0.0,
+            value=float(udv_defaults[category]),
+            help="Override if updated UDV schedules are available.",
+        )
+        user_days = st.number_input(
+            "Expected Annual User Days",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+        )
+        if st.button("Compute Recreation Benefit"):
+            benefit = udv_value * user_days
+            st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
+            st.session_state.recreation_benefit = benefit
+            st.session_state.recreation_inputs = {
+                "Recreation Type": rec_type,
+                "Quality Category": category,
+                "Unit Day Value": udv_value,
+                "Annual User Days": user_days,
+            }
+    with tab_rank:
+        st.subheader(
+            "Table 1. Guidelines for Assigning Points for General Recreation"
+        )
+        criteria_table = {
+            "Criteria": [
+                "Recreation experience",
+                "Availability of opportunity",
+                "Carrying capacity",
+                "Accessibility",
+                "Environmental quality",
+            ],
+            "Very Low": [
+                "Two general activities (0-4)",
+                "Several within 1 hr travel time; a few within 30 min (0-3)",
+                "Minimum facility for public health and safety (0-2)",
+                "Limited access by any means to site or within site (0-3)",
+                "Low aesthetic quality; factors significantly lower quality (0-2)",
+            ],
+            "Low": [
+                "Several general activities (5-10)",
+                "Several within 1 hr travel time; none within 30 min (4-6)",
+                "Basic facility to conduct activity(ies) (3-5)",
+                "Fair access, poor quality roads to site; limited access within site (4-6)",
+                "Average aesthetic quality; factors exist that lower quality (3-6)",
+            ],
+            "Moderate": [
+                "Several general activities; one high quality value activity (11-16)",
+                "One or two within 1 hr travel time; none within 30 min (7-10)",
+                "Adequate facilities to conduct activity without resource deterioration (6-8)",
+                "Fair access, fair road to site; fair access, good roads within site (7-10)",
+                "Above average aesthetic quality; limiting factors can be rectified (7-10)",
+            ],
+            "High": [
+                "Several general activities; more than one high quality value activity (17-23)",
+                "None within 1 hr travel time; one or two within 2 hr travel time (11-14)",
+                "Optimum facilities to conduct activity at site (9-11)",
+                "Good access, good roads to site; fair access, good roads within site (11-14)",
+                "High aesthetic quality; no factors exist that lower quality (11-15)",
+            ],
+            "Very High": [
+                "Numerous high quality activities (24-30)",
+                "None within 2 hr travel time (15-18)",
+                "Ultimate potential facilities to achieve intent of selected alternative (12-14)",
+                "Good access, high standard road to site; good access within site (15-18)",
+                "Outstanding aesthetic quality; no factors exist that lower quality (16-20)",
+            ],
         }
-    else:  # Specialized
-        udv_defaults = {
-            "A (High quality)": 40.0,
-            "B": 30.0,
-            "C": 20.0,
-            "D": 10.0,
-            "E": 5.0,
-            "F (Low quality)": 2.0,
-        }
-
-    category = st.selectbox(
-        "Quality Category",
-        list(udv_defaults.keys()),
-        help="Quality rating consistent with USACE guidance.",
-    )
-    udv_value = st.number_input(
-        "Unit Day Value ($/user day)",
-        min_value=0.0,
-        value=float(udv_defaults[category]),
-        help="Override if updated UDV schedules are available.",
-    )
-    user_days = st.number_input(
-        "Expected Annual User Days",
-        min_value=0.0,
-        value=0.0,
-        step=1.0,
-    )
-
-    if st.button("Compute Recreation Benefit"):
-        benefit = udv_value * user_days
-        st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
-        st.session_state.recreation_benefit = benefit
-        st.session_state.recreation_inputs = {
-            "Recreation Type": rec_type,
-            "Quality Category": category,
-            "Unit Day Value": udv_value,
-            "Annual User Days": user_days,
-        }
-
+        st.table(pd.DataFrame(criteria_table).set_index("Criteria"))
     export_button()
 
 
