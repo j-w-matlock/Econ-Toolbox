@@ -1,8 +1,9 @@
 # 🎈 Economic toolbox
 
 A Streamlit application featuring an Expected Annual Damage (EAD) calculator,
-an updated cost of storage calculator, and a project cost annualizer that
-produces annualized construction costs and benefit–cost ratios.
+an updated cost of storage calculator, a project cost annualizer that produces
+annualized construction costs and benefit–cost ratios, and a Unit Day Value
+recreation benefit calculator.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 
@@ -82,6 +83,15 @@ Annual Construction = Total Investment * CRF
 Annual Total Cost = Annual Construction + Annual O&M
 Benefit–Cost Ratio = Annual Benefits / Annual Total Cost
 ```
+
+### Recreation Benefits via Unit Day Values
+
+```
+Annual Recreation Benefit = UDV * User Days
+```
+
+where UDV is the unit day value from the latest USACE schedule and User Days
+are the expected annual recreation visitations.
 
 ## References
 

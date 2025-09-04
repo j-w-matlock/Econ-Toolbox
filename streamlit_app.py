@@ -182,6 +182,17 @@ def build_excel():
         for k, v in st.session_state.get("annualizer_summary", {}).items():
             ws_ann.append([k, v])
 
+    # Recreation UDV inputs and result
+    if (
+        st.session_state.get("recreation_inputs")
+        or st.session_state.get("recreation_benefit")
+    ):
+        ws_rec = wb.create_sheet("Recreation UDV")
+        for k, v in st.session_state.get("recreation_inputs", {}).items():
+            ws_rec.append([k, v])
+        if "recreation_benefit" in st.session_state:
+            ws_rec.append(["Annual Recreation Benefit", st.session_state.recreation_benefit])
+
     # README sheet
     readme_lines = Path("README.md").read_text().splitlines()
     ws_readme = wb.create_sheet("README")
@@ -623,6 +634,70 @@ def annualizer_calculator():
     export_button()
 
 
+def recreation_udv():
+    """Unit Day Value recreation benefit calculator."""
+    st.header("Recreation Benefit (Unit Day Value)")
+    st.info(
+        "Estimate annual recreation benefits using USACE Unit Day Values (UDV)."
+    )
+
+    rec_type = st.selectbox(
+        "Recreation Type",
+        ["General", "Specialized"],
+        help="Select the type of recreation experience.",
+    )
+
+    if rec_type == "General":
+        udv_defaults = {
+            "A (High quality)": 18.0,
+            "B": 13.0,
+            "C": 9.0,
+            "D": 6.0,
+            "E": 4.0,
+            "F (Low quality)": 2.0,
+        }
+    else:  # Specialized
+        udv_defaults = {
+            "A (High quality)": 40.0,
+            "B": 30.0,
+            "C": 20.0,
+            "D": 10.0,
+            "E": 5.0,
+            "F (Low quality)": 2.0,
+        }
+
+    category = st.selectbox(
+        "Quality Category",
+        list(udv_defaults.keys()),
+        help="Quality rating consistent with USACE guidance.",
+    )
+    udv_value = st.number_input(
+        "Unit Day Value ($/user day)",
+        min_value=0.0,
+        value=float(udv_defaults[category]),
+        help="Override if updated UDV schedules are available.",
+    )
+    user_days = st.number_input(
+        "Expected Annual User Days",
+        min_value=0.0,
+        value=0.0,
+        step=1.0,
+    )
+
+    if st.button("Compute Recreation Benefit"):
+        benefit = udv_value * user_days
+        st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
+        st.session_state.recreation_benefit = benefit
+        st.session_state.recreation_inputs = {
+            "Recreation Type": rec_type,
+            "Quality Category": category,
+            "Unit Day Value": udv_value,
+            "Annual User Days": user_days,
+        }
+
+    export_button()
+
+
 def readme_page():
     """Display repository README."""
     st.header("ReadMe")
@@ -631,7 +706,13 @@ def readme_page():
 
 section = st.sidebar.radio(
     "Navigate",
-    ["EAD Calculator", "Updated Storage Cost", "Project Annualizer", "ReadMe"],
+    [
+        "EAD Calculator",
+        "Updated Storage Cost",
+        "Project Annualizer",
+        "Recreation UDV",
+        "ReadMe",
+    ],
 )
 
 if section == "EAD Calculator":
@@ -640,6 +721,8 @@ elif section == "Updated Storage Cost":
     storage_calculator()
 elif section == "Project Annualizer":
     annualizer_calculator()
+elif section == "Recreation UDV":
+    recreation_udv()
 else:
     readme_page()
 
