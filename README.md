@@ -92,6 +92,9 @@ Annual Recreation Benefit = UDV * User Days
 
 where UDV is the unit day value from the latest USACE schedule and User Days
 are the expected annual recreation visitations.
+The application converts recreation quality point rankings to unit day values
+using USACE schedules for general recreation, fishing and hunting, and other
+specialized activities such as boating.
 
 ## References
 
