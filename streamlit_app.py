@@ -8,6 +8,65 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import LineChart, Reference
 
+# Conversion table from point rankings to unit day values ($/user day)
+POINT_VALUE_TABLE = pd.DataFrame(
+    {
+        "Points": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        "General Recreation": [
+            4.87,
+            5.78,
+            6.39,
+            7.31,
+            9.13,
+            10.35,
+            11.26,
+            11.87,
+            13.09,
+            14.00,
+            14.61,
+        ],
+        "General Fishing and Hunting": [
+            7.00,
+            7.91,
+            8.52,
+            9.44,
+            10.35,
+            11.26,
+            12.48,
+            13.09,
+            14.00,
+            14.31,
+            14.61,
+        ],
+        "Specialized Fishing and Hunting": [
+            34.09,
+            35.01,
+            35.62,
+            36.53,
+            37.44,
+            41.10,
+            44.75,
+            47.49,
+            51.14,
+            54.80,
+            57.84,
+        ],
+        "Specialized Recreation": [
+            19.79,
+            21.00,
+            22.53,
+            24.35,
+            25.88,
+            29.22,
+            32.27,
+            38.97,
+            45.36,
+            51.75,
+            57.84,
+        ],
+    }
+)
+
 
 st.title("Economic Toolbox")
 
@@ -648,32 +707,43 @@ def recreation_udv():
             help="Select the type of recreation experience.",
         )
         if rec_type == "General":
-            udv_defaults = {
-                "A (High quality)": 18.0,
-                "B": 13.0,
-                "C": 9.0,
-                "D": 6.0,
-                "E": 4.0,
-                "F (Low quality)": 2.0,
-            }
-        else:  # Specialized
-            udv_defaults = {
-                "A (High quality)": 40.0,
-                "B": 30.0,
-                "C": 20.0,
-                "D": 10.0,
-                "E": 5.0,
-                "F (Low quality)": 2.0,
-            }
-        category = st.selectbox(
-            "Quality Category",
-            list(udv_defaults.keys()),
-            help="Quality rating consistent with USACE guidance.",
+            activity = st.selectbox(
+                "General Activity Type",
+                ["General Recreation", "Fishing and Hunting"],
+                help="Select the general recreation category.",
+            )
+        else:
+            activity = st.selectbox(
+                "Specialized Activity Type",
+                ["Fishing and Hunting", "Other (e.g., Boating)"],
+                help="Select the specialized recreation category.",
+            )
+        points = st.number_input(
+            "Point Value",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            step=1.0,
+            help="Total recreation ranking points (0-100).",
+        )
+        column_map = {
+            ("General", "General Recreation"): "General Recreation",
+            ("General", "Fishing and Hunting"): "General Fishing and Hunting",
+            ("Specialized", "Fishing and Hunting"): "Specialized Fishing and Hunting",
+            ("Specialized", "Other (e.g., Boating)"): "Specialized Recreation",
+        }
+        table_col = column_map[(rec_type, activity)]
+        udv_calc = float(
+            np.interp(
+                points,
+                POINT_VALUE_TABLE["Points"],
+                POINT_VALUE_TABLE[table_col],
+            )
         )
         udv_value = st.number_input(
             "Unit Day Value ($/user day)",
             min_value=0.0,
-            value=float(udv_defaults[category]),
+            value=udv_calc,
             help="Override if updated UDV schedules are available.",
         )
         user_days = st.number_input(
@@ -688,7 +758,8 @@ def recreation_udv():
             st.session_state.recreation_benefit = benefit
             st.session_state.recreation_inputs = {
                 "Recreation Type": rec_type,
-                "Quality Category": category,
+                "Activity Type": activity,
+                "Point Value": points,
                 "Unit Day Value": udv_value,
                 "Annual User Days": user_days,
             }
@@ -741,6 +812,8 @@ def recreation_udv():
             ],
         }
         st.table(pd.DataFrame(criteria_table).set_index("Criteria"))
+        st.subheader("Table 2. Conversion of Points to Dollar Values")
+        st.table(POINT_VALUE_TABLE.set_index("Points"))
     export_button()
 
 
