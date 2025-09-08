@@ -96,6 +96,24 @@ The application converts recreation quality point rankings to unit day values
 using USACE schedules for general recreation, fishing and hunting, and other
 specialized activities such as boating.
 
+### Municipal and Industrial Water Demand Forecast
+
+The forecasting tab projects combined municipal and industrial water demand.
+Required inputs include the base year, number of projection years, base-year
+population (or an annual population growth rate), per-capita municipal use,
+an industrial demand factor (percent of municipal demand), and system losses.
+Population is grown annually and converted to demand with:
+
+```
+Municipal Demand = Population × Per-capita Use × 365 / 1,000,000
+Industrial Demand = Municipal Demand × Industrial Factor
+Total Demand = (Municipal + Industrial) × (1 + System Losses)
+```
+
+The implementation follows U.S. Army Corps of Engineers guidance for municipal
+and industrial (M&I) water supply studies in ER 1105-2-100 and related policy
+memoranda.
+
 ## References
 
 - U.S. Army Corps of Engineers. (1996). *Engineering Manual 1110-2-1619: Risk-Based Analysis for Flood Damage Reduction Studies*.
