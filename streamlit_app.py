@@ -8,6 +8,65 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import LineChart, Reference
 
+# Conversion table from point rankings to unit day values ($/user day)
+POINT_VALUE_TABLE = pd.DataFrame(
+    {
+        "Points": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        "General Recreation": [
+            4.87,
+            5.78,
+            6.39,
+            7.31,
+            9.13,
+            10.35,
+            11.26,
+            11.87,
+            13.09,
+            14.00,
+            14.61,
+        ],
+        "General Fishing and Hunting": [
+            7.00,
+            7.91,
+            8.52,
+            9.44,
+            10.35,
+            11.26,
+            12.48,
+            13.09,
+            14.00,
+            14.31,
+            14.61,
+        ],
+        "Specialized Fishing and Hunting": [
+            34.09,
+            35.01,
+            35.62,
+            36.53,
+            37.44,
+            41.10,
+            44.75,
+            47.49,
+            51.14,
+            54.80,
+            57.84,
+        ],
+        "Specialized Recreation": [
+            19.79,
+            21.00,
+            22.53,
+            24.35,
+            25.88,
+            29.22,
+            32.27,
+            38.97,
+            45.36,
+            51.75,
+            57.84,
+        ],
+    }
+)
+
 
 st.title("Economic Toolbox")
 
@@ -638,34 +697,41 @@ def udv_analysis():
     """Unit Day Value recreation benefit calculator."""
     st.header("Recreation Benefit (Unit Day Value)")
     st.info(
-        "Estimate annual recreation benefits using USACE Unit Day Values (UDV)."
+        "Estimate annual recreation benefits using USACE Unit Day Values (UDV).",
     )
-
-    rec_type = st.selectbox(
-        "Recreation Type",
-        ["General", "Specialized"],
-        help="Select the type of recreation experience.",
-    )
-
-    if rec_type == "General":
-        udv_defaults = {
-            "A (High quality)": 18.0,
-            "B": 13.0,
-            "C": 9.0,
-            "D": 6.0,
-            "E": 4.0,
-            "F (Low quality)": 2.0,
+    tab_calc, tab_rank = st.tabs(["Calculator", "Ranking Criteria"])
+    with tab_calc:
+        rec_type = st.selectbox(
+            "Recreation Type",
+            ["General", "Specialized"],
+            help="Select the type of recreation experience.",
+        )
+        if rec_type == "General":
+            activity = st.selectbox(
+                "General Activity Type",
+                ["General Recreation", "Fishing and Hunting"],
+                help="Select the general recreation category.",
+            )
+        else:
+            activity = st.selectbox(
+                "Specialized Activity Type",
+                ["Fishing and Hunting", "Other (e.g., Boating)"],
+                help="Select the specialized recreation category.",
+            )
+        points = st.number_input(
+            "Point Value",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            step=1.0,
+            help="Total recreation ranking points (0-100).",
+        )
+        column_map = {
+            ("General", "General Recreation"): "General Recreation",
+            ("General", "Fishing and Hunting"): "General Fishing and Hunting",
+            ("Specialized", "Fishing and Hunting"): "Specialized Fishing and Hunting",
+            ("Specialized", "Other (e.g., Boating)"): "Specialized Recreation",
         }
-    else:  # Specialized
-        udv_defaults = {
-            "A (High quality)": 40.0,
-            "B": 30.0,
-            "C": 20.0,
-            "D": 10.0,
-            "E": 5.0,
-            "F (Low quality)": 2.0,
-        }
-
     category = st.selectbox(
         "Quality Category",
         list(udv_defaults.keys()),
@@ -693,8 +759,88 @@ def udv_analysis():
             "Quality Category": category,
             "Unit Day Value": udv_value,
             "Annual User Days": user_days,
+        table_col = column_map[(rec_type, activity)]
+        udv_calc = float(
+            np.interp(
+                points,
+                POINT_VALUE_TABLE["Points"],
+                POINT_VALUE_TABLE[table_col],
+            )
+        )
+        udv_value = st.number_input(
+            "Unit Day Value ($/user day)",
+            min_value=0.0,
+            value=udv_calc,
+            help="Override if updated UDV schedules are available.",
+        )
+        user_days = st.number_input(
+            "Expected Annual User Days",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+        )
+        if st.button("Compute Recreation Benefit"):
+            benefit = udv_value * user_days
+            st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
+            st.session_state.recreation_benefit = benefit
+            st.session_state.recreation_inputs = {
+                "Recreation Type": rec_type,
+                "Activity Type": activity,
+                "Point Value": points,
+                "Unit Day Value": udv_value,
+                "Annual User Days": user_days,
+            }
+    with tab_rank:
+        st.subheader(
+            "Table 1. Guidelines for Assigning Points for General Recreation"
+        )
+        criteria_table = {
+            "Criteria": [
+                "Recreation experience",
+                "Availability of opportunity",
+                "Carrying capacity",
+                "Accessibility",
+                "Environmental quality",
+            ],
+            "Very Low": [
+                "Two general activities (0-4)",
+                "Several within 1 hr travel time; a few within 30 min (0-3)",
+                "Minimum facility for public health and safety (0-2)",
+                "Limited access by any means to site or within site (0-3)",
+                "Low aesthetic quality; factors significantly lower quality (0-2)",
+            ],
+            "Low": [
+                "Several general activities (5-10)",
+                "Several within 1 hr travel time; none within 30 min (4-6)",
+                "Basic facility to conduct activity(ies) (3-5)",
+                "Fair access, poor quality roads to site; limited access within site (4-6)",
+                "Average aesthetic quality; factors exist that lower quality (3-6)",
+            ],
+            "Moderate": [
+                "Several general activities; one high quality value activity (11-16)",
+                "One or two within 1 hr travel time; none within 30 min (7-10)",
+                "Adequate facilities to conduct activity without resource deterioration (6-8)",
+                "Fair access, fair road to site; fair access, good roads within site (7-10)",
+                "Above average aesthetic quality; limiting factors can be rectified (7-10)",
+            ],
+            "High": [
+                "Several general activities; more than one high quality value activity (17-23)",
+                "None within 1 hr travel time; one or two within 2 hr travel time (11-14)",
+                "Optimum facilities to conduct activity at site (9-11)",
+                "Good access, good roads to site; fair access, good roads within site (11-14)",
+                "High aesthetic quality; no factors exist that lower quality (11-15)",
+            ],
+            "Very High": [
+                "Numerous high quality activities (24-30)",
+                "None within 2 hr travel time (15-18)",
+                "Ultimate potential facilities to achieve intent of selected alternative (12-14)",
+                "Good access, high standard road to site; good access within site (15-18)",
+                "Outstanding aesthetic quality; no factors exist that lower quality (16-20)",
+            ],
         }
-
+        st.table(pd.DataFrame(criteria_table).set_index("Criteria"))
+        st.subheader("Table 2. Conversion of Points to Dollar Values")
+        st.table(POINT_VALUE_TABLE.set_index("Points"))
     export_button()
 
 
