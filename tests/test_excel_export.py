@@ -92,5 +92,11 @@ def test_build_excel_includes_storage_sheets():
     assert ws_tac["A3"].value == "Cost of Storage Recommendation"
     assert ws_tac["B3"].value == 1.5
     assert ws_tac["C3"].value == 1.5
+    assert ws_tac["A5"].value == "Joint O&M"
+    assert ws_tac["B5"].value == 7.5
+    assert ws_tac["C5"].value == 7.5
+    assert ws_tac["A6"].value == "Annualized RR&R/Mitigation"
+    assert ws_tac["B6"].value == 5.0
+    assert ws_tac["C6"].value == 5.0
     assert ws_tac["B7"].value == 25.0
     assert ws_tac["C7"].value == 30.0
