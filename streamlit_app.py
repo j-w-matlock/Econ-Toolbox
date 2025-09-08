@@ -259,9 +259,14 @@ def build_excel():
         ws_rrr.append(["Federal Discount Rate (%)", rrr_mit.get("rate")])
         ws_rrr.append(["Analysis Years (Periods)", rrr_mit.get("periods")])
         ws_rrr.append(["CWCCI Ratio", rrr_mit.get("cwcci")])
-        ws_rrr.append(
-            ["RR&R and Mitigation Cost (base year $)", rrr_mit.get("base_cost")]
-        )
+        ws_rrr.append(["Base Year", rrr_mit.get("base_year")])
+        table = rrr_mit.get("table")
+        if isinstance(table, pd.DataFrame) and not table.empty:
+            ws_rrr.append([])
+            for row in dataframe_to_rows(table, index=False, header=True):
+                ws_rrr.append(row)
+            ws_rrr.append([])
+        ws_rrr.append(["Total Present Value Cost", rrr_mit.get("total_pv")])
         ws_rrr.append(["Updated Cost", rrr_mit.get("updated_cost")])
         ws_rrr.append(
             [
@@ -658,21 +663,23 @@ def storage_calculator():
             )
         usc_cols = {
             "Actual Cost": st.column_config.NumberColumn(
-                "Actual Cost", min_value=0.0, format="$%d"
+                "Actual Cost", min_value=0.0, format="$%.2f"
             ),
             "Update Factor": st.column_config.NumberColumn(
                 "Update Factor", min_value=0.0, format="%.5f"
             ),
         }
-        table = st.data_editor(
+        raw_table = st.data_editor(
             st.session_state.usc_table,
             num_rows="dynamic",
             use_container_width=True,
             column_config=usc_cols,
-            key="usc_editor",
+            key="usc_table_editor",
         )
-        st.session_state.usc_table = table
-        table = table.assign(**{"Updated Cost": table["Actual Cost"] * table["Update Factor"]})
+        st.session_state.usc_table = raw_table
+        table = raw_table.assign(
+            **{"Updated Cost": raw_table["Actual Cost"] * raw_table["Update Factor"]}
+        )
         st.table(table)
         ctot = float(table["Updated Cost"].sum())
         st.write(f"Total Updated Cost of Storage (CTot): ${ctot:,.2f}")
@@ -704,14 +711,47 @@ def storage_calculator():
             value=float(st.session_state.rrr_mit.get("cwcci", 1.0)),
             help="Cell B4: ratio of CWCCIS indices to update costs to the base year.",
         )
-        base_cost = st.number_input(
-            "RR&R and Mitigation Cost (base year $)",
-            min_value=0.0,
-            value=float(st.session_state.rrr_mit.get("base_cost", 0.0)),
-            help="Combined rehabilitation, replacement and mitigation estimate in base year dollars.",
+        base_year = st.number_input(
+            "Base Year",
+            min_value=0,
+            step=1,
+            value=int(st.session_state.rrr_mit.get("base_year", 0)),
+            help="Year to which future costs are discounted.",
         )
-        updated_cost = base_cost * cwcci
-        crf = capital_recovery_factor(rate / 100.0, periods)
+        if "rrr_costs" not in st.session_state:
+            st.session_state.rrr_costs = pd.DataFrame(
+                {"Item": [], "Future Cost": [], "Year": []}
+            )
+        cost_cols = {
+            "Future Cost": st.column_config.NumberColumn(
+                "Future Cost", min_value=0.0, format="$%.2f"
+            ),
+            "Year": st.column_config.NumberColumn(
+                "Year", min_value=0, step=1, format="%d"
+            ),
+        }
+        raw_costs = st.data_editor(
+            st.session_state.rrr_costs,
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config=cost_cols,
+            key="rrr_costs_editor",
+        )
+        st.session_state.rrr_costs = raw_costs
+        rate_dec = rate / 100.0
+        if not raw_costs.empty:
+            costs = raw_costs.copy()
+            costs["PV Factor"] = 1 / (
+                (1 + rate_dec) ** (costs["Year"] - base_year)
+            )
+            costs["Present Value"] = costs["Future Cost"] * costs["PV Factor"]
+            st.table(costs)
+            total_pv = float(costs["Present Value"].sum())
+        else:
+            costs = pd.DataFrame()
+            total_pv = 0.0
+        updated_cost = total_pv * cwcci
+        crf = capital_recovery_factor(rate_dec, periods)
         annualized = updated_cost * crf
         st.write(f"Updated Cost: ${updated_cost:,.2f}")
         st.write(f"Annualized RR&R and Mitigation: ${annualized:,.2f}")
@@ -719,7 +759,9 @@ def storage_calculator():
             "rate": rate,
             "periods": periods,
             "cwcci": cwcci,
-            "base_cost": base_cost,
+            "base_year": base_year,
+            "table": costs,
+            "total_pv": total_pv,
             "updated_cost": updated_cost,
             "annualized": annualized,
         }

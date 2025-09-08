@@ -30,11 +30,22 @@ def test_build_excel_includes_storage_sheets():
     )
     usc_df = usc_df.assign(**{"Updated Cost": usc_df["Actual Cost"] * usc_df["Update Factor"]})
     st.session_state.updated_storage = {"table": usc_df, "CTot": float(usc_df["Updated Cost"].sum())}
+    rrr_df = pd.DataFrame(
+        {
+            "Item": ["A"],
+            "Future Cost": [100.0],
+            "Year": [2020],
+            "PV Factor": [1.0],
+            "Present Value": [100.0],
+        }
+    )
     st.session_state.rrr_mit = {
         "rate": 5.0,
         "periods": 30,
         "cwcci": 1.0,
-        "base_cost": 100.0,
+        "base_year": 2020,
+        "table": rrr_df,
+        "total_pv": 100.0,
         "updated_cost": 100.0,
         "annualized": 10.0,
     }
@@ -72,6 +83,9 @@ def test_build_excel_includes_storage_sheets():
 
     ws_rrr = wb["RR&R and Mitigation"]
     assert ws_rrr["A1"].value == "Federal Discount Rate (%)"
+    assert ws_rrr["A4"].value == "Base Year"
+    assert ws_rrr["A6"].value == "Item"
+    assert ws_rrr["A9"].value == "Total Present Value Cost"
 
     ws_tac = wb["Total Annual Cost"]
     assert ws_tac["A2"].value == "Percent of Total Conservation Storage (P)"
