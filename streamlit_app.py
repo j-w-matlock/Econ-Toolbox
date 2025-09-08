@@ -216,11 +216,11 @@ def build_excel():
 
     # Updated storage inputs and result
     if st.session_state.get("storage_inputs") or st.session_state.get("storage_cost"):
-        ws_storage = wb.create_sheet("Updated Storage")
+        ws_storage = wb.create_sheet("Storage Cost")
         for k, v in st.session_state.get("storage_inputs", {}).items():
             ws_storage.append([k, v])
         if "storage_cost" in st.session_state:
-            ws_storage.append(["Updated cost of storage", st.session_state.storage_cost])
+            ws_storage.append(["Total annual cost", st.session_state.storage_cost])
 
     # Annualizer inputs, future costs, and summary
     if (
@@ -480,55 +480,203 @@ def ead_calculator():
 
 
 def storage_calculator():
-    """Updated cost of storage calculator."""
-    st.header("Updated Cost of Storage Calculator")
+    """Multi-step storage cost and O&M workflow."""
+    st.header("Storage Cost and O&M Calculator")
     st.caption(
-        "Reference: Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR)."
+        "Replicates the workflow of the 'Updated Cost of Storage' spreadsheet."
     )
-    st.info("Estimate the updated cost of storage for a reservoir reallocation.")
 
-    with st.form("storage_form"):
-        tc = st.number_input(
-            "Total Joint Use Construction Cost (TC)",
-            min_value=0.0,
-            value=1000000.0,
-            help="Total joint-use construction costs updated using CWCCIS and ENR.",
-        )
-        sp = st.number_input(
-            "Water Supply Specific Costs (SP)",
-            min_value=0.0,
-            value=100000.0,
-            help="Costs of identifiable project features for a specific purpose, updated using CWCCIS and ENR.",
-        )
-        storage_reallocated = st.number_input(
-            "Estimated Storage to be Reallocated (ac-ft)",
-            min_value=0.0,
-            value=1000.0,
-            help="Estimated volume of storage being reallocated.",
-        )
-        total_usable_storage = st.number_input(
-            "Total usable storage space (ac-ft)",
-            min_value=0.0,
-            value=10000.0,
-            help="Total usable storage capacity of the project.",
-        )
-        compute_storage = st.form_submit_button(
-            "Compute updated cost",
-            help="Calculate the updated cost of storage.",
-        )
+    tabs = st.tabs(
+        [
+            "Storage Capacity",
+            "Joint Costs O&M",
+            "Updated Storage Costs",
+            "RR&R and Mitigation",
+            "Total Annual Cost",
+        ]
+    )
 
-    if compute_storage:
-        cost = updated_storage_cost(
-            tc, sp, storage_reallocated, total_usable_storage
+    # --- Storage Capacity -------------------------------------------------
+    with tabs[0]:
+        st.subheader("Storage Capacity")
+        st.info(
+            "Determine the percent of conservation storage recommended for water supply."
         )
-        st.success(f"Updated cost of storage: ${cost:,.2f}")
-        st.session_state.storage_cost = cost
-        st.session_state.storage_inputs = {
-            "Total Joint Use Construction Cost (TC)": tc,
-            "Water Supply Specific Costs (SP)": sp,
-            "Estimated Storage to be Reallocated (ac-ft)": storage_reallocated,
-            "Total usable storage space (ac-ft)": total_usable_storage,
+        st.session_state.setdefault("storage_capacity", {})
+        stot = st.number_input(
+            "Total Usable Storage (STot) (ac-ft)",
+            min_value=0.0,
+            value=float(st.session_state.storage_capacity.get("STot", 0.0)),
+            help="Total usable conservation storage (cell B2).",
+        )
+        srec = st.number_input(
+            "Storage Recommendation (SRec) (ac-ft)",
+            min_value=0.0,
+            value=float(st.session_state.storage_capacity.get("SRec", 0.0)),
+            help="Storage volume proposed for reallocation (cell B3).",
+        )
+        p = (srec / stot) if stot else 0.0
+        st.write(f"Percent of Total Conservation Storage (P): {p:.5f}")
+        st.session_state.storage_capacity = {"STot": stot, "SRec": srec, "P": p}
+
+    # --- Joint Costs O&M --------------------------------------------------
+    with tabs[1]:
+        st.subheader("Joint Costs O&M")
+        st.info(
+            "Enter annual joint operations and maintenance costs updated to the current price level."
+        )
+        st.session_state.setdefault("joint_om", {})
+        ops = st.number_input(
+            "Joint Operations Cost ($/year)",
+            min_value=0.0,
+            value=float(st.session_state.joint_om.get("operations", 0.0)),
+            help="Sum of joint operations expenditures.",
+        )
+        maint = st.number_input(
+            "Joint Maintenance Cost ($/year)",
+            min_value=0.0,
+            value=float(st.session_state.joint_om.get("maintenance", 0.0)),
+            help="Sum of joint maintenance expenditures.",
+        )
+        total_om = ops + maint
+        st.write(f"Total Joint O&M: ${total_om:,.2f}")
+        st.session_state.joint_om = {
+            "operations": ops,
+            "maintenance": maint,
+            "total": total_om,
         }
+
+    # --- Updated Storage Costs -------------------------------------------
+    with tabs[2]:
+        st.subheader("Updated Storage Costs")
+        st.info(
+            "Update original joint-use construction costs to current dollars using CWCCIS ratios."
+        )
+        if "usc_table" not in st.session_state:
+            st.session_state.usc_table = pd.DataFrame(
+                {
+                    "Category": ["Lands and Damages", "Relocations", "Dam"],
+                    "Actual Cost": [0.0, 0.0, 0.0],
+                    "Update Factor": [1.0, 1.0, 1.0],
+                }
+            )
+        usc_cols = {
+            "Actual Cost": st.column_config.NumberColumn(
+                "Actual Cost", min_value=0.0, format="$%d"
+            ),
+            "Update Factor": st.column_config.NumberColumn(
+                "Update Factor", min_value=0.0, format="%.5f"
+            ),
+        }
+        table = st.data_editor(
+            st.session_state.usc_table,
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config=usc_cols,
+            key="usc_editor",
+        )
+        st.session_state.usc_table = table
+        table = table.assign(**{"Updated Cost": table["Actual Cost"] * table["Update Factor"]})
+        st.table(table)
+        ctot = float(table["Updated Cost"].sum())
+        st.write(f"Total Updated Cost of Storage (CTot): ${ctot:,.2f}")
+        st.session_state.updated_storage = {"table": table, "CTot": ctot}
+
+    # --- RR&R and Mitigation ---------------------------------------------
+    with tabs[3]:
+        st.subheader("RR&R and Mitigation")
+        st.info(
+            "Annualize rehabilitation/replacement and mitigation costs using a capital recovery factor."
+        )
+        st.session_state.setdefault("rrr_mit", {})
+        rate = st.number_input(
+            "Federal Discount Rate (%)",
+            min_value=0.0,
+            value=float(st.session_state.rrr_mit.get("rate", 0.0)),
+            help="Cell B2: federal discount rate expressed as a percent.",
+        )
+        periods = st.number_input(
+            "Analysis Years (Periods)",
+            min_value=1,
+            step=1,
+            value=int(st.session_state.rrr_mit.get("periods", 30)),
+            help="Cell B3: number of years over which to annualize costs.",
+        )
+        cwcci = st.number_input(
+            "CWCCI Ratio (FY/FY)",
+            min_value=0.0,
+            value=float(st.session_state.rrr_mit.get("cwcci", 1.0)),
+            help="Cell B4: ratio of CWCCIS indices to update costs to the base year.",
+        )
+        base_cost = st.number_input(
+            "RR&R and Mitigation Cost (base year $)",
+            min_value=0.0,
+            value=float(st.session_state.rrr_mit.get("base_cost", 0.0)),
+            help="Combined rehabilitation, replacement and mitigation estimate in base year dollars.",
+        )
+        updated_cost = base_cost * cwcci
+        crf = capital_recovery_factor(rate / 100.0, periods)
+        annualized = updated_cost * crf
+        st.write(f"Updated Cost: ${updated_cost:,.2f}")
+        st.write(f"Annualized RR&R and Mitigation: ${annualized:,.2f}")
+        st.session_state.rrr_mit = {
+            "rate": rate,
+            "periods": periods,
+            "cwcci": cwcci,
+            "base_cost": base_cost,
+            "updated_cost": updated_cost,
+            "annualized": annualized,
+        }
+
+    # --- Total Annual Cost ------------------------------------------------
+    with tabs[4]:
+        st.subheader("Total Annual Cost")
+        st.info(
+            "Combine capital, O&M, and RR&R/mitigation to estimate the annual cost of reallocation."
+        )
+        st.session_state.setdefault("total_annual_cost_inputs", {})
+        drate = st.number_input(
+            "Discount Rate (%) for Storage Cost",
+            min_value=0.0,
+            value=float(
+                st.session_state.total_annual_cost_inputs.get(
+                    "rate", st.session_state.rrr_mit.get("rate", 0.0)
+                )
+            ),
+            help="Discount rate used to annualize updated storage costs.",
+        )
+        years = st.number_input(
+            "Analysis Period (years)",
+            min_value=1,
+            step=1,
+            value=int(
+                st.session_state.total_annual_cost_inputs.get(
+                    "periods", st.session_state.rrr_mit.get("periods", 30)
+                )
+            ),
+            help="Number of years over which storage costs are annualized.",
+        )
+        p = st.session_state.get("storage_capacity", {}).get("P", 0.0)
+        ctot = st.session_state.get("updated_storage", {}).get("CTot", 0.0)
+        om_total = st.session_state.get("joint_om", {}).get("total", 0.0)
+        rrr_annual = st.session_state.get("rrr_mit", {}).get("annualized", 0.0)
+        capital_annual = ctot * p * capital_recovery_factor(drate / 100.0, years)
+        total_annual = capital_annual + om_total + rrr_annual
+        st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
+        st.metric("Annualized Storage Cost", f"${capital_annual:,.2f}")
+        st.metric("Joint O&M", f"${om_total:,.2f}")
+        st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")
+        st.metric("Total Annual Cost", f"${total_annual:,.2f}")
+        st.session_state.total_annual_cost_inputs = {"rate": drate, "periods": years}
+        st.session_state.storage_inputs = {
+            **st.session_state.get("storage_capacity", {}),
+            **st.session_state.get("joint_om", {}),
+            **st.session_state.get("rrr_mit", {}),
+            "Capital Discount Rate": drate,
+            "Capital Analysis Years": years,
+            "Updated Cost Total": ctot,
+        }
+        st.session_state.storage_cost = total_annual
 
     export_button()
 
