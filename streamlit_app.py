@@ -286,6 +286,9 @@ def build_excel():
         years2 = total_inputs.get("periods2") if total_inputs else None
 
         cap1 = cap2 = None
+        crec = None
+        if None not in (ctot, p):
+            crec = ctot * p
         if None not in (ctot, p, drate1, years1):
             cap1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
         if None not in (ctot, p, drate2, years2):
@@ -294,6 +297,8 @@ def build_excel():
         ws_tac.append(["Metric", "Scenario 1", "Scenario 2"])
         if p is not None:
             ws_tac.append(["Percent of Total Conservation Storage (P)", p, p])
+        if crec is not None:
+            ws_tac.append(["Cost of Storage Recommendation", crec, crec])
         if cap1 is not None or cap2 is not None:
             ws_tac.append(["Annualized Storage Cost", cap1, cap2])
         if om_total is not None:
@@ -730,6 +735,7 @@ def storage_calculator():
         ctot = st.session_state.get("updated_storage", {}).get("CTot", 0.0)
         om_total = st.session_state.get("joint_om", {}).get("total", 0.0)
         rrr_annual = st.session_state.get("rrr_mit", {}).get("annualized", 0.0)
+        crec = ctot * p
 
         st.session_state.setdefault("total_annual_cost_inputs", {})
         inputs = st.session_state.total_annual_cost_inputs
@@ -761,6 +767,7 @@ def storage_calculator():
             capital1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
             total1 = capital1 + om_total + rrr_annual
             st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
+            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
             st.metric("Annualized Storage Cost", f"${capital1:,.2f}")
             st.metric("Joint O&M", f"${om_total:,.2f}")
             st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")
@@ -791,6 +798,7 @@ def storage_calculator():
             capital2 = ctot * p * capital_recovery_factor(drate2 / 100.0, years2)
             total2 = capital2 + om_total + rrr_annual
             st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
+            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
             st.metric("Annualized Storage Cost", f"${capital2:,.2f}")
             st.metric("Joint O&M", f"${om_total:,.2f}")
             st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")

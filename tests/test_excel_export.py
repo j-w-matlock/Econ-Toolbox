@@ -75,5 +75,8 @@ def test_build_excel_includes_storage_sheets():
 
     ws_tac = wb["Total Annual Cost"]
     assert ws_tac["A2"].value == "Percent of Total Conservation Storage (P)"
-    assert ws_tac["B6"].value == 25.0
-    assert ws_tac["C6"].value == 30.0
+    assert ws_tac["A3"].value == "Cost of Storage Recommendation"
+    assert ws_tac["B3"].value == 1.5
+    assert ws_tac["C3"].value == 1.5
+    assert ws_tac["B7"].value == 25.0
+    assert ws_tac["C7"].value == 30.0
