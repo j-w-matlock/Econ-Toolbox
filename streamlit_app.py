@@ -214,13 +214,89 @@ def build_excel():
             for k, v in pct_changes.items():
                 ws_ead.append([f"{k} % change from Damage 1", v])
 
-    # Updated storage inputs and result
-    if st.session_state.get("storage_inputs") or st.session_state.get("storage_cost"):
-        ws_storage = wb.create_sheet("Storage Cost")
-        for k, v in st.session_state.get("storage_inputs", {}).items():
-            ws_storage.append([k, v])
-        if "storage_cost" in st.session_state:
-            ws_storage.append(["Total annual cost", st.session_state.storage_cost])
+    # Storage capacity inputs and results
+    storage_capacity = st.session_state.get("storage_capacity")
+    if storage_capacity:
+        ws_sc = wb.create_sheet("Storage Capacity")
+        ws_sc.append(["Total Usable Storage (STot)", storage_capacity.get("STot")])
+        ws_sc.append(["Storage Recommendation (SRec)", storage_capacity.get("SRec")])
+        ws_sc.append(
+            [
+                "Percent of Total Conservation Storage (P)",
+                storage_capacity.get("P"),
+            ]
+        )
+
+    # Joint costs O&M inputs and results
+    joint_om = st.session_state.get("joint_om")
+    if joint_om:
+        ws_jom = wb.create_sheet("Joint Costs O&M")
+        ws_jom.append(["Joint Operations Cost ($/year)", joint_om.get("operations")])
+        ws_jom.append(
+            ["Joint Maintenance Cost ($/year)", joint_om.get("maintenance")]
+        )
+        ws_jom.append(["Total Joint O&M", joint_om.get("total")])
+
+    # Updated storage costs table and summary
+    updated_storage = st.session_state.get("updated_storage")
+    if updated_storage:
+        ws_usc = wb.create_sheet("Updated Storage Costs")
+        table = updated_storage.get("table", pd.DataFrame())
+        if isinstance(table, pd.DataFrame):
+            for row in dataframe_to_rows(table, index=False, header=True):
+                ws_usc.append(row)
+        if "CTot" in updated_storage:
+            ws_usc.append([])
+            ws_usc.append([
+                "Total Updated Cost of Storage",
+                updated_storage.get("CTot"),
+            ])
+
+    # RR&R and Mitigation inputs and results
+    rrr_mit = st.session_state.get("rrr_mit")
+    if rrr_mit:
+        ws_rrr = wb.create_sheet("RR&R and Mitigation")
+        ws_rrr.append(["Federal Discount Rate (%)", rrr_mit.get("rate")])
+        ws_rrr.append(["Analysis Years (Periods)", rrr_mit.get("periods")])
+        ws_rrr.append(["CWCCI Ratio", rrr_mit.get("cwcci")])
+        ws_rrr.append(
+            ["RR&R and Mitigation Cost (base year $)", rrr_mit.get("base_cost")]
+        )
+        ws_rrr.append(["Updated Cost", rrr_mit.get("updated_cost")])
+        ws_rrr.append(
+            [
+                "Annualized RR&R and Mitigation",
+                rrr_mit.get("annualized"),
+            ]
+        )
+
+    # Total annual cost summary
+    total_inputs = st.session_state.get("total_annual_cost_inputs")
+    if total_inputs or st.session_state.get("storage_cost") is not None:
+        ws_tac = wb.create_sheet("Total Annual Cost")
+        p = storage_capacity.get("P") if storage_capacity else None
+        ctot = updated_storage.get("CTot") if updated_storage else None
+        om_total = joint_om.get("total") if joint_om else None
+        rrr_annual = rrr_mit.get("annualized") if rrr_mit else None
+        drate = total_inputs.get("rate") if total_inputs else None
+        years = total_inputs.get("periods") if total_inputs else None
+        capital_annual = None
+        if None not in (ctot, p, drate, years):
+            capital_annual = ctot * p * capital_recovery_factor(drate / 100.0, years)
+        if p is not None:
+            ws_tac.append(["Percent of Total Conservation Storage (P)", p])
+        if capital_annual is not None:
+            ws_tac.append(["Annualized Storage Cost", capital_annual])
+        if om_total is not None:
+            ws_tac.append(["Joint O&M", om_total])
+        if rrr_annual is not None:
+            ws_tac.append(["Annualized RR&R/Mitigation", rrr_annual])
+        if st.session_state.get("storage_cost") is not None:
+            ws_tac.append(["Total Annual Cost", st.session_state.get("storage_cost")])
+        if drate is not None:
+            ws_tac.append(["Discount Rate (%) for Storage Cost", drate])
+        if years is not None:
+            ws_tac.append(["Analysis Period (years)", years])
 
     # Annualizer inputs, future costs, and summary
     if (
