@@ -719,10 +719,16 @@ def storage_calculator():
             help="Year to which future costs are discounted.",
         )
         if "rrr_costs" not in st.session_state:
+            # Use explicit dtypes so Streamlit treats the ``Item`` column as text.
             st.session_state.rrr_costs = pd.DataFrame(
-                {"Item": [], "Future Cost": [], "Year": []}
+                {
+                    "Item": pd.Series(dtype="object"),
+                    "Future Cost": pd.Series(dtype="float"),
+                    "Year": pd.Series(dtype="int"),
+                }
             )
         cost_cols = {
+            "Item": st.column_config.TextColumn("Item"),
             "Future Cost": st.column_config.NumberColumn(
                 "Future Cost", min_value=0.0, format="$%.2f"
             ),
@@ -737,7 +743,11 @@ def storage_calculator():
             column_config=cost_cols,
             key="rrr_costs_editor",
         )
-        st.session_state.rrr_costs = raw_costs
+        # Preserve dtypes (especially ``Item``) on update
+        st.session_state.rrr_costs = raw_costs.astype(
+            {"Item": "object", "Future Cost": "float", "Year": "int"},
+            errors="ignore",
+        )
         rate_dec = rate / 100.0
         if not raw_costs.empty:
             costs = raw_costs.copy()
