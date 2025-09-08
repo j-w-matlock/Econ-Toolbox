@@ -87,14 +87,16 @@ Benefit–Cost Ratio = Annual Benefits / Annual Total Cost
 ### Recreation Benefits via Unit Day Values
 
 ```
-Annual Recreation Benefit = UDV * User Days
+Adjusted User Days = User Days × Expected Visitation
+Annual Recreation Benefit = UDV × Adjusted User Days
 ```
 
-where UDV is the unit day value from the latest USACE schedule and User Days
-are the expected annual recreation visitations.
-The application converts recreation quality point rankings to unit day values
-using USACE schedules for general recreation, fishing and hunting, and other
-specialized activities such as boating.
+where UDV is the unit day value from the latest USACE schedule. User Days
+represent the expected annual recreation days, and Expected Visitation is
+applied as a multiplier to adjust the user day estimate. The application
+converts recreation quality point rankings to unit day values using USACE
+schedules for general recreation, fishing and hunting, and other specialized
+activities such as boating.
 
 ### Municipal and Industrial Water Demand Forecast
 
