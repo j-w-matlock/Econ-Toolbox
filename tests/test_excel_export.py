@@ -61,9 +61,10 @@ def test_build_excel_includes_storage_sheets():
     inputs = st.session_state.total_annual_cost_inputs
     cap1 = ctot * p * capital_recovery_factor(inputs["rate1"] / 100.0, inputs["periods1"])
     cap2 = ctot * p * capital_recovery_factor(inputs["rate2"] / 100.0, inputs["periods2"])
-    rrr_share = st.session_state.rrr_mit["annualized"] * p
-    total1 = cap1 + st.session_state.joint_om["total"] + rrr_share
-    total2 = cap2 + st.session_state.joint_om["total"] + rrr_share
+    om_scaled = st.session_state.joint_om["total"] * p
+    rrr_scaled = st.session_state.rrr_mit["annualized"] * p
+    total1 = cap1 + om_scaled + rrr_scaled
+    total2 = cap2 + om_scaled + rrr_scaled
     st.session_state.storage_cost = {"scenario1": total1, "scenario2": total2}
 
     buffer = build_excel()
@@ -99,18 +100,25 @@ def test_build_excel_includes_storage_sheets():
     ws_tac = wb["Total Annual Cost"]
     assert ws_tac["A2"].value == "Percent of Total Conservation Storage (P)"
     assert ws_tac["A3"].value == "Cost of Storage Recommendation"
+    assert ws_tac["A4"].value == "Annualized Storage Cost"
+    assert ws_tac["A5"].value == "Joint O&M"
+    assert ws_tac["A6"].value == "Annualized RR&R/Mitigation"
+    assert ws_tac["A7"].value == "Total Annual Cost"
+    assert ws_tac["B2"].value == 0.5
+    assert ws_tac["C2"].value == 0.5
     assert ws_tac["B3"].value == 1.5
     assert ws_tac["C3"].value == 1.5
-    assert ws_tac["A6"].value == "Annual Replacement and Rehabilitation Estimate"
-    assert ws_tac["B6"].value == pytest.approx(rrr_share)
-    assert ws_tac["C6"].value == pytest.approx(rrr_share)
+    assert ws_tac["B4"].value == pytest.approx(cap1)
+    assert ws_tac["C4"].value == pytest.approx(cap2)
+    assert ws_tac["B5"].value == pytest.approx(om_scaled)
+    assert ws_tac["C5"].value == pytest.approx(om_scaled)
+    assert ws_tac["B6"].value == pytest.approx(rrr_scaled)
+    assert ws_tac["C6"].value == pytest.approx(rrr_scaled)
     assert ws_tac["B7"].value == pytest.approx(total1)
     assert ws_tac["C7"].value == pytest.approx(total2)
-    assert ws_tac["A5"].value == "Joint O&M"
-    assert ws_tac["B5"].value == 7.5
-    assert ws_tac["C5"].value == 7.5
-    assert ws_tac["A6"].value == "Annualized RR&R/Mitigation"
-    assert ws_tac["B6"].value == 5.0
-    assert ws_tac["C6"].value == 5.0
-    assert ws_tac["B7"].value == 25.0
-    assert ws_tac["C7"].value == 30.0
+    assert ws_tac["A8"].value == "Discount Rate (%) for Storage Cost"
+    assert ws_tac["B8"].value == 5.0
+    assert ws_tac["C8"].value == 6.0
+    assert ws_tac["A9"].value == "Analysis Period (years)"
+    assert ws_tac["B9"].value == 30
+    assert ws_tac["C9"].value == 40
