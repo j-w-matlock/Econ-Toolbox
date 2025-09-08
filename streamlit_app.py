@@ -252,6 +252,13 @@ def build_excel():
         if "udv_benefit" in st.session_state:
             ws_rec.append(["Annual Recreation Benefit", st.session_state.udv_benefit])
 
+    # Water demand forecast results
+    water_df = st.session_state.get("water_demand_results")
+    if isinstance(water_df, pd.DataFrame) and not water_df.empty:
+        ws_water = wb.create_sheet("Water Demand")
+        for row in dataframe_to_rows(water_df, index=False, header=True):
+            ws_water.append(row)
+
     # README sheet
     readme_lines = Path("README.md").read_text().splitlines()
     ws_readme = wb.create_sheet("README")
@@ -732,39 +739,10 @@ def udv_analysis():
             ("Specialized", "Fishing and Hunting"): "Specialized Fishing and Hunting",
             ("Specialized", "Other (e.g., Boating)"): "Specialized Recreation",
         }
-    category = st.selectbox(
-        "Quality Category",
-        list(udv_defaults.keys()),
-        help="Quality rating consistent with USACE guidance.",
-    )
-    udv_value = st.number_input(
-        "Unit Day Value ($/user day)",
-        min_value=0.0,
-        value=float(udv_defaults[category]),
-        help="Override if updated UDV schedules are available.",
-    )
-    user_days = st.number_input(
-        "Expected Annual User Days",
-        min_value=0.0,
-        value=0.0,
-        step=1.0,
-    )
-
-    if st.button("Compute Recreation Benefit"):
-        benefit = udv_value * user_days
-        st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
-        st.session_state.udv_benefit = benefit
-        st.session_state.udv_inputs = {
-            "Recreation Type": rec_type,
-            "Quality Category": category,
-            "Unit Day Value": udv_value,
-            "Annual User Days": user_days,
         table_col = column_map[(rec_type, activity)]
         udv_calc = float(
             np.interp(
-                points,
-                POINT_VALUE_TABLE["Points"],
-                POINT_VALUE_TABLE[table_col],
+                points, POINT_VALUE_TABLE["Points"], POINT_VALUE_TABLE[table_col]
             )
         )
         udv_value = st.number_input(
@@ -782,8 +760,8 @@ def udv_analysis():
         if st.button("Compute Recreation Benefit"):
             benefit = udv_value * user_days
             st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
-            st.session_state.recreation_benefit = benefit
-            st.session_state.recreation_inputs = {
+            st.session_state.udv_benefit = benefit
+            st.session_state.udv_inputs = {
                 "Recreation Type": rec_type,
                 "Activity Type": activity,
                 "Point Value": points,
@@ -844,6 +822,106 @@ def udv_analysis():
     export_button()
 
 
+def water_demand_forecast():
+    """Municipal and industrial water demand forecast."""
+    st.header("Water Demand Forecast")
+    st.info(
+        "Project municipal and industrial water demand using USACE guidance." \
+        " Calculations follow ER 1105-2-100 methodology."
+    )
+
+    with st.form("water_demand_form"):
+        base_year = st.number_input(
+            "Base Year",
+            min_value=0,
+            value=2024,
+            step=1,
+            help="Starting year for the forecast.",
+        )
+        projection_years = st.number_input(
+            "Projection Years",
+            min_value=1,
+            value=20,
+            step=1,
+            help="Number of years to project beyond the base year.",
+        )
+        base_pop = st.number_input(
+            "Base Population",
+            min_value=0.0,
+            value=0.0,
+            step=100.0,
+            help="Population in the base year.",
+        )
+        growth_rate = (
+            st.number_input(
+                "Annual Population Growth Rate (%)",
+                value=1.0,
+                step=0.1,
+                help="Average annual growth rate for population.",
+            )
+            / 100.0
+        )
+        per_capita = st.number_input(
+            "Per-capita Municipal Demand (gallons/person/day)",
+            min_value=0.0,
+            value=100.0,
+            help="Typical municipal use per person.",
+        )
+        industrial_factor = (
+            st.number_input(
+                "Industrial Demand Factor (% of municipal)",
+                min_value=0.0,
+                value=20.0,
+                step=1.0,
+                help="Industrial demand as a percent of municipal demand.",
+            )
+            / 100.0
+        )
+        system_losses = (
+            st.number_input(
+                "System Losses (%)",
+                min_value=0.0,
+                value=10.0,
+                step=1.0,
+                help="Distribution losses as a percent of total demand.",
+            )
+            / 100.0
+        )
+        submitted = st.form_submit_button("Run Forecast")
+
+    if submitted:
+        years = np.arange(base_year, base_year + projection_years + 1)
+        pops = base_pop * (1 + growth_rate) ** np.arange(0, projection_years + 1)
+        input_df = pd.DataFrame({"Year": years, "Population": pops})
+
+        municipal_mgy = pops * per_capita * 365 / 1e6
+        industrial_mgy = municipal_mgy * industrial_factor
+        total_mgy = (municipal_mgy + industrial_mgy) * (1 + system_losses)
+        result_df = pd.DataFrame(
+            {
+                "Year": years,
+                "Population": pops.round(0).astype(int),
+                "Municipal Demand (MGY)": municipal_mgy,
+                "Industrial Demand (MGY)": industrial_mgy,
+                "Total Demand (MGY)": total_mgy,
+            }
+        )
+        st.session_state.water_input_table = input_df
+        st.session_state.water_demand_results = result_df
+
+    if st.session_state.get("water_input_table") is not None:
+        st.subheader("Population Projections")
+        st.table(st.session_state.water_input_table)
+
+    result_df = st.session_state.get("water_demand_results", pd.DataFrame())
+    if not result_df.empty:
+        st.subheader("Forecast Results")
+        st.table(result_df)
+        st.line_chart(result_df.set_index("Year")["Total Demand (MGY)"])
+
+    export_button()
+
+
 def readme_page():
     """Display repository README."""
     st.header("ReadMe")
@@ -857,6 +935,7 @@ section = st.sidebar.radio(
         "Updated Storage Cost",
         "Project Annualizer",
         "UDV Analysis",
+        "Water Demand Forecast",
         "ReadMe",
     ],
 )
@@ -869,6 +948,8 @@ elif section == "Project Annualizer":
     annualizer_calculator()
 elif section == "UDV Analysis":
     udv_analysis()
+elif section == "Water Demand Forecast":
+    water_demand_forecast()
 else:
     readme_page()
 
