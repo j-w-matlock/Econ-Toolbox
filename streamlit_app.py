@@ -241,16 +241,16 @@ def build_excel():
         for k, v in st.session_state.get("annualizer_summary", {}).items():
             ws_ann.append([k, v])
 
-    # Recreation UDV inputs and result
+    # UDV analysis inputs and result
     if (
-        st.session_state.get("recreation_inputs")
-        or st.session_state.get("recreation_benefit")
+        st.session_state.get("udv_inputs")
+        or st.session_state.get("udv_benefit")
     ):
-        ws_rec = wb.create_sheet("Recreation UDV")
-        for k, v in st.session_state.get("recreation_inputs", {}).items():
+        ws_rec = wb.create_sheet("UDV Analysis")
+        for k, v in st.session_state.get("udv_inputs", {}).items():
             ws_rec.append([k, v])
-        if "recreation_benefit" in st.session_state:
-            ws_rec.append(["Annual Recreation Benefit", st.session_state.recreation_benefit])
+        if "udv_benefit" in st.session_state:
+            ws_rec.append(["Annual Recreation Benefit", st.session_state.udv_benefit])
 
     # README sheet
     readme_lines = Path("README.md").read_text().splitlines()
@@ -693,7 +693,7 @@ def annualizer_calculator():
     export_button()
 
 
-def recreation_udv():
+def udv_analysis():
     """Unit Day Value recreation benefit calculator."""
     st.header("Recreation Benefit (Unit Day Value)")
     st.info(
@@ -732,6 +732,33 @@ def recreation_udv():
             ("Specialized", "Fishing and Hunting"): "Specialized Fishing and Hunting",
             ("Specialized", "Other (e.g., Boating)"): "Specialized Recreation",
         }
+    category = st.selectbox(
+        "Quality Category",
+        list(udv_defaults.keys()),
+        help="Quality rating consistent with USACE guidance.",
+    )
+    udv_value = st.number_input(
+        "Unit Day Value ($/user day)",
+        min_value=0.0,
+        value=float(udv_defaults[category]),
+        help="Override if updated UDV schedules are available.",
+    )
+    user_days = st.number_input(
+        "Expected Annual User Days",
+        min_value=0.0,
+        value=0.0,
+        step=1.0,
+    )
+
+    if st.button("Compute Recreation Benefit"):
+        benefit = udv_value * user_days
+        st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
+        st.session_state.udv_benefit = benefit
+        st.session_state.udv_inputs = {
+            "Recreation Type": rec_type,
+            "Quality Category": category,
+            "Unit Day Value": udv_value,
+            "Annual User Days": user_days,
         table_col = column_map[(rec_type, activity)]
         udv_calc = float(
             np.interp(
@@ -829,7 +856,7 @@ section = st.sidebar.radio(
         "EAD Calculator",
         "Updated Storage Cost",
         "Project Annualizer",
-        "Recreation UDV",
+        "UDV Analysis",
         "ReadMe",
     ],
 )
@@ -840,8 +867,8 @@ elif section == "Updated Storage Cost":
     storage_calculator()
 elif section == "Project Annualizer":
     annualizer_calculator()
-elif section == "Recreation UDV":
-    recreation_udv()
+elif section == "UDV Analysis":
+    udv_analysis()
 else:
     readme_page()
 
