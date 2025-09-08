@@ -460,7 +460,10 @@ def ead_calculator():
             "Save table", help="Apply edits to the table above."
         )
     if submitted:
-        st.session_state.table = data
+        # ``data_editor`` mutates the provided DataFrame. Copy the result so the
+        # saved table reflects the user's first edits without requiring
+        # additional input.
+        st.session_state.table = data.copy()
 
     damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
     charts_for_export = []
@@ -676,7 +679,10 @@ def storage_calculator():
             column_config=usc_cols,
             key="usc_table_editor",
         )
-        st.session_state.usc_table = raw_table
+        # ``data_editor`` returns a reference that is mutated in place, which can
+        # cause the first edit to be lost when the widget reruns.  Copy the
+        # result so that session state holds the updated values immediately.
+        st.session_state.usc_table = raw_table.copy()
         table = raw_table.assign(
             **{"Updated Cost": raw_table["Actual Cost"] * raw_table["Update Factor"]}
         )
@@ -743,10 +749,11 @@ def storage_calculator():
             column_config=cost_cols,
             key="rrr_costs_editor",
         )
-        # Preserve dtypes (especially ``Item``) on update
-        st.session_state.rrr_costs = raw_costs.astype(
-            {"Item": "object", "Future Cost": "float", "Year": "int"},
-            errors="ignore",
+        # Preserve dtypes (especially ``Item``) on update. ``data_editor`` may
+        # return a view of the original DataFrame which is mutated in place, so
+        # copy the result to ensure edits persist after the first entry.
+        st.session_state.rrr_costs = (
+            raw_costs.astype({"Item": "object", "Future Cost": "float", "Year": "int"}, errors="ignore").copy()
         )
         rate_dec = rate / 100.0
         if not raw_costs.empty:
