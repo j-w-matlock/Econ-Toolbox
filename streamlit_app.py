@@ -452,7 +452,7 @@ def ead_calculator():
         data = st.data_editor(
             st.session_state.table,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="table_editor",
             column_config=column_config,
         )
@@ -672,7 +672,7 @@ def storage_calculator():
         raw_table = st.data_editor(
             st.session_state.usc_table,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             column_config=usc_cols,
             key="usc_table_editor",
         )
@@ -739,7 +739,7 @@ def storage_calculator():
         raw_costs = st.data_editor(
             st.session_state.rrr_costs,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             column_config=cost_cols,
             key="rrr_costs_editor",
         )
