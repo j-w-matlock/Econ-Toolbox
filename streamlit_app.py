@@ -1,3 +1,4 @@
+import copy
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -80,8 +81,8 @@ def persistent_data_editor(df: pd.DataFrame, key: str, **kwargs) -> pd.DataFrame
     ensures that all edits persist immediately.
     """
 
-    edited = st.data_editor(df.copy(deep=True), key=key, **kwargs)
-    return edited.copy(deep=True)
+    edited = st.data_editor(copy.deepcopy(df), key=key, **kwargs)
+    return copy.deepcopy(edited)
 
 
 def ead_trapezoidal(prob, damages):
