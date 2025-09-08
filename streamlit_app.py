@@ -757,16 +757,27 @@ def udv_analysis():
             value=0.0,
             step=1.0,
         )
+        visitation = st.number_input(
+            "Expected Visitation",
+            min_value=0.0,
+            value=1.0,
+            step=1.0,
+            help="Multiplier applied to the expected annual user days.",
+        )
         if st.button("Compute Recreation Benefit"):
-            benefit = udv_value * user_days
+            total_user_days = user_days * visitation
+            benefit = udv_value * total_user_days
             st.success(f"Annual Recreation Benefit: ${benefit:,.2f}")
+            st.info(f"Adjusted Annual User Days: {total_user_days:,.2f}")
             st.session_state.udv_benefit = benefit
             st.session_state.udv_inputs = {
                 "Recreation Type": rec_type,
                 "Activity Type": activity,
                 "Point Value": points,
                 "Unit Day Value": udv_value,
-                "Annual User Days": user_days,
+                "Expected Annual User Days": user_days,
+                "Expected Visitation": visitation,
+                "Adjusted Annual User Days": total_user_days,
             }
     with tab_rank:
         st.subheader(
