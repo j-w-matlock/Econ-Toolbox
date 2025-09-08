@@ -64,7 +64,7 @@ def test_build_excel_includes_storage_sheets():
     om_scaled = st.session_state.joint_om["total"] * p
     rrr_scaled = st.session_state.rrr_mit["annualized"] * p
     total1 = cap1 + om_scaled + rrr_scaled
-    total2 = cap2 + om_scaled + rrr_scaled
+    total2 = cap2 + om_scaled
     st.session_state.storage_cost = {"scenario1": total1, "scenario2": total2}
 
     buffer = build_excel()
@@ -113,7 +113,7 @@ def test_build_excel_includes_storage_sheets():
     assert ws_tac["B5"].value == pytest.approx(om_scaled)
     assert ws_tac["C5"].value == pytest.approx(om_scaled)
     assert ws_tac["B6"].value == pytest.approx(rrr_scaled)
-    assert ws_tac["C6"].value == pytest.approx(rrr_scaled)
+    assert ws_tac["C6"].value == 0
     assert ws_tac["B7"].value == pytest.approx(total1)
     assert ws_tac["C7"].value == pytest.approx(total2)
     assert ws_tac["A8"].value == "Discount Rate (%) for Storage Cost"
