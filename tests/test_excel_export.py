@@ -38,8 +38,13 @@ def test_build_excel_includes_storage_sheets():
         "updated_cost": 100.0,
         "annualized": 10.0,
     }
-    st.session_state.total_annual_cost_inputs = {"rate": 5.0, "periods": 30}
-    st.session_state.storage_cost = 25.0
+    st.session_state.total_annual_cost_inputs = {
+        "rate1": 5.0,
+        "periods1": 30,
+        "rate2": 6.0,
+        "periods2": 40,
+    }
+    st.session_state.storage_cost = {"scenario1": 25.0, "scenario2": 30.0}
 
     buffer = build_excel()
     wb = openpyxl.load_workbook(buffer)
@@ -69,5 +74,6 @@ def test_build_excel_includes_storage_sheets():
     assert ws_rrr["A1"].value == "Federal Discount Rate (%)"
 
     ws_tac = wb["Total Annual Cost"]
-    assert ws_tac["A1"].value == "Percent of Total Conservation Storage (P)"
-    assert ws_tac["B5"].value == 25.0
+    assert ws_tac["A2"].value == "Percent of Total Conservation Storage (P)"
+    assert ws_tac["B6"].value == 25.0
+    assert ws_tac["C6"].value == 30.0
