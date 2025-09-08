@@ -272,31 +272,46 @@ def build_excel():
 
     # Total annual cost summary
     total_inputs = st.session_state.get("total_annual_cost_inputs")
-    if total_inputs or st.session_state.get("storage_cost") is not None:
+    storage_costs = st.session_state.get("storage_cost")
+    if total_inputs or storage_costs is not None:
         ws_tac = wb.create_sheet("Total Annual Cost")
         p = storage_capacity.get("P") if storage_capacity else None
         ctot = updated_storage.get("CTot") if updated_storage else None
         om_total = joint_om.get("total") if joint_om else None
         rrr_annual = rrr_mit.get("annualized") if rrr_mit else None
-        drate = total_inputs.get("rate") if total_inputs else None
-        years = total_inputs.get("periods") if total_inputs else None
-        capital_annual = None
-        if None not in (ctot, p, drate, years):
-            capital_annual = ctot * p * capital_recovery_factor(drate / 100.0, years)
+
+        drate1 = total_inputs.get("rate1") if total_inputs else None
+        years1 = total_inputs.get("periods1") if total_inputs else None
+        drate2 = total_inputs.get("rate2") if total_inputs else None
+        years2 = total_inputs.get("periods2") if total_inputs else None
+
+        cap1 = cap2 = None
+        if None not in (ctot, p, drate1, years1):
+            cap1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
+        if None not in (ctot, p, drate2, years2):
+            cap2 = ctot * p * capital_recovery_factor(drate2 / 100.0, years2)
+
+        ws_tac.append(["Metric", "Scenario 1", "Scenario 2"])
         if p is not None:
-            ws_tac.append(["Percent of Total Conservation Storage (P)", p])
-        if capital_annual is not None:
-            ws_tac.append(["Annualized Storage Cost", capital_annual])
+            ws_tac.append(["Percent of Total Conservation Storage (P)", p, p])
+        if cap1 is not None or cap2 is not None:
+            ws_tac.append(["Annualized Storage Cost", cap1, cap2])
         if om_total is not None:
-            ws_tac.append(["Joint O&M", om_total])
+            ws_tac.append(["Joint O&M", om_total, om_total])
         if rrr_annual is not None:
-            ws_tac.append(["Annualized RR&R/Mitigation", rrr_annual])
-        if st.session_state.get("storage_cost") is not None:
-            ws_tac.append(["Total Annual Cost", st.session_state.get("storage_cost")])
-        if drate is not None:
-            ws_tac.append(["Discount Rate (%) for Storage Cost", drate])
-        if years is not None:
-            ws_tac.append(["Analysis Period (years)", years])
+            ws_tac.append(["Annualized RR&R/Mitigation", rrr_annual, rrr_annual])
+        if isinstance(storage_costs, dict):
+            ws_tac.append(
+                [
+                    "Total Annual Cost",
+                    storage_costs.get("scenario1"),
+                    storage_costs.get("scenario2"),
+                ]
+            )
+        if drate1 is not None or drate2 is not None:
+            ws_tac.append(["Discount Rate (%) for Storage Cost", drate1, drate2])
+        if years1 is not None or years2 is not None:
+            ws_tac.append(["Analysis Period (years)", years1, years2])
 
     # Annualizer inputs, future costs, and summary
     if (
@@ -710,49 +725,97 @@ def storage_calculator():
         st.info(
             "Combine capital, O&M, and RR&R/mitigation to estimate the annual cost of reallocation."
         )
-        st.session_state.setdefault("total_annual_cost_inputs", {})
-        drate = st.number_input(
-            "Discount Rate (%) for Storage Cost",
-            min_value=0.0,
-            value=float(
-                st.session_state.total_annual_cost_inputs.get(
-                    "rate", st.session_state.rrr_mit.get("rate", 0.0)
-                )
-            ),
-            help="Discount rate used to annualize updated storage costs.",
-        )
-        years = st.number_input(
-            "Analysis Period (years)",
-            min_value=1,
-            step=1,
-            value=int(
-                st.session_state.total_annual_cost_inputs.get(
-                    "periods", st.session_state.rrr_mit.get("periods", 30)
-                )
-            ),
-            help="Number of years over which storage costs are annualized.",
-        )
+        # Inputs shared across scenarios
         p = st.session_state.get("storage_capacity", {}).get("P", 0.0)
         ctot = st.session_state.get("updated_storage", {}).get("CTot", 0.0)
         om_total = st.session_state.get("joint_om", {}).get("total", 0.0)
         rrr_annual = st.session_state.get("rrr_mit", {}).get("annualized", 0.0)
-        capital_annual = ctot * p * capital_recovery_factor(drate / 100.0, years)
-        total_annual = capital_annual + om_total + rrr_annual
-        st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
-        st.metric("Annualized Storage Cost", f"${capital_annual:,.2f}")
-        st.metric("Joint O&M", f"${om_total:,.2f}")
-        st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")
-        st.metric("Total Annual Cost", f"${total_annual:,.2f}")
-        st.session_state.total_annual_cost_inputs = {"rate": drate, "periods": years}
+
+        st.session_state.setdefault("total_annual_cost_inputs", {})
+        inputs = st.session_state.total_annual_cost_inputs
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            drate1 = st.number_input(
+                "Discount Rate (%)",
+                min_value=0.0,
+                value=float(
+                    inputs.get("rate1", st.session_state.rrr_mit.get("rate", 0.0))
+                ),
+                key="tac_rate1",
+                help="Discount rate used to annualize updated storage costs.",
+            )
+            years1 = st.number_input(
+                "Analysis Period (years)",
+                min_value=1,
+                step=1,
+                value=int(
+                    inputs.get(
+                        "periods1", st.session_state.rrr_mit.get("periods", 30)
+                    )
+                ),
+                key="tac_years1",
+                help="Number of years over which storage costs are annualized.",
+            )
+            capital1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
+            total1 = capital1 + om_total + rrr_annual
+            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
+            st.metric("Annualized Storage Cost", f"${capital1:,.2f}")
+            st.metric("Joint O&M", f"${om_total:,.2f}")
+            st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")
+            st.metric("Total Annual Cost", f"${total1:,.2f}")
+
+        with col2:
+            drate2 = st.number_input(
+                "Discount Rate (%)",
+                min_value=0.0,
+                value=float(
+                    inputs.get("rate2", st.session_state.rrr_mit.get("rate", 0.0))
+                ),
+                key="tac_rate2",
+                help="Discount rate used to annualize updated storage costs.",
+            )
+            years2 = st.number_input(
+                "Analysis Period (years)",
+                min_value=1,
+                step=1,
+                value=int(
+                    inputs.get(
+                        "periods2", st.session_state.rrr_mit.get("periods", 30)
+                    )
+                ),
+                key="tac_years2",
+                help="Number of years over which storage costs are annualized.",
+            )
+            capital2 = ctot * p * capital_recovery_factor(drate2 / 100.0, years2)
+            total2 = capital2 + om_total + rrr_annual
+            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
+            st.metric("Annualized Storage Cost", f"${capital2:,.2f}")
+            st.metric("Joint O&M", f"${om_total:,.2f}")
+            st.metric("Annualized RR&R/Mitigation", f"${rrr_annual:,.2f}")
+            st.metric("Total Annual Cost", f"${total2:,.2f}")
+
+        st.session_state.total_annual_cost_inputs = {
+            "rate1": drate1,
+            "periods1": years1,
+            "rate2": drate2,
+            "periods2": years2,
+        }
         st.session_state.storage_inputs = {
             **st.session_state.get("storage_capacity", {}),
             **st.session_state.get("joint_om", {}),
             **st.session_state.get("rrr_mit", {}),
-            "Capital Discount Rate": drate,
-            "Capital Analysis Years": years,
+            "Capital Discount Rate 1": drate1,
+            "Capital Analysis Years 1": years1,
+            "Capital Discount Rate 2": drate2,
+            "Capital Analysis Years 2": years2,
             "Updated Cost Total": ctot,
         }
-        st.session_state.storage_cost = total_annual
+        st.session_state.storage_cost = {
+            "scenario1": total1,
+            "scenario2": total2,
+        }
 
     export_button()
 
