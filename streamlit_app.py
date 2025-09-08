@@ -71,6 +71,19 @@ POINT_VALUE_TABLE = pd.DataFrame(
 st.title("Economic Toolbox")
 
 
+def persistent_data_editor(df: pd.DataFrame, key: str, **kwargs) -> pd.DataFrame:
+    """Return an edited copy of ``df`` that preserves first changes.
+
+    ``st.data_editor`` mutates its input in place and may return a view of the
+    original object, causing the first user edit to disappear on rerun. Passing
+    a deep copy to the widget and returning a deep copy of the edited result
+    ensures that all edits persist immediately.
+    """
+
+    edited = st.data_editor(df.copy(deep=True), key=key, **kwargs)
+    return edited.copy(deep=True)
+
+
 def ead_trapezoidal(prob, damages):
     """Return expected annual damage via trapezoidal integration."""
     prob = np.asarray(prob, dtype=float)
@@ -451,20 +464,19 @@ def ead_calculator():
             )
 
     with st.form("data_table_form"):
-        data = st.data_editor(
+        data = persistent_data_editor(
             st.session_state.table,
+            key="table_editor",
             num_rows="dynamic",
             width="stretch",
-            key="table_editor",
             column_config=column_config,
         )
         submitted = st.form_submit_button(
             "Save table", help="Apply edits to the table above."
         )
     if submitted:
-        # ``data_editor`` mutates the provided DataFrame. Copy the result so the
-        # saved table reflects the user's first edits without requiring
-        # additional input.
+        # Store a separate copy so the saved table reflects the user's edits
+        # even after further interaction.
         st.session_state.table = data.copy()
 
     damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
@@ -674,17 +686,13 @@ def storage_calculator():
                 "Update Factor", min_value=0.0, format="%.5f"
             ),
         }
-        raw_table = st.data_editor(
-            st.session_state.usc_table.copy(),
+        raw_table = persistent_data_editor(
+            st.session_state.usc_table,
+            key="usc_table_editor",
             num_rows="dynamic",
             width="stretch",
             column_config=usc_cols,
-            key="usc_table_editor",
         )
-        # ``data_editor`` mutates its input in place and returns a reference to
-        # the same object, which can cause the first edit to be lost on rerun.
-        # To ensure edits persist immediately, pass a copy to the editor and
-        # store a copy of the result back into session state.
         st.session_state.usc_table = raw_table.copy()
         table = raw_table.assign(
             **{"Updated Cost": raw_table["Actual Cost"] * raw_table["Update Factor"]}
@@ -745,17 +753,14 @@ def storage_calculator():
                 "Year", min_value=0, step=1, format="%d"
             ),
         }
-        raw_costs = st.data_editor(
-            st.session_state.rrr_costs.copy(),
+        raw_costs = persistent_data_editor(
+            st.session_state.rrr_costs,
+            key="rrr_costs_editor",
             num_rows="dynamic",
             width="stretch",
             column_config=cost_cols,
-            key="rrr_costs_editor",
         )
-        # Preserve dtypes (especially ``Item``) on update. ``data_editor`` may
-        # return a view of the original DataFrame which is mutated in place.
-        # Pass a copy to the widget and store a copy of the result so that the
-        # first edit persists after the widget reruns.
+        # Preserve dtypes (especially ``Item``) on update.
         st.session_state.rrr_costs = (
             raw_costs.astype({"Item": "object", "Future Cost": "float", "Year": "int"}, errors="ignore").copy()
         )
