@@ -42,8 +42,8 @@ the damage–frequency curve.
 Updated Cost = (TC - SP) * (S_r / S_t)
 ```
 
-with total construction cost TC, specific costs SP, storage reallocated S_r, and
-total usable storage S_t.
+with total joint-use construction cost TC, specific costs SP, estimated storage
+to be reallocated S_r, and total usable storage S_t.
 
 ### Interest During Construction (IDC)
 
