@@ -284,7 +284,6 @@ def build_excel():
         ctot = updated_storage.get("CTot") if updated_storage else None
         om_total = joint_om.get("total") if joint_om else None
         rrr_annual = rrr_mit.get("annualized") if rrr_mit else None
-        rrr_share = rrr_annual * p if None not in (rrr_annual, p) else None
         om_scaled = om_total * p if None not in (om_total, p) else None
         rrr_scaled = rrr_annual * p if None not in (rrr_annual, p) else None
 
@@ -309,16 +308,6 @@ def build_excel():
             ws_tac.append(["Cost of Storage Recommendation", crec, crec])
         if cap1 is not None or cap2 is not None:
             ws_tac.append(["Annualized Storage Cost", cap1, cap2])
-        if om_total is not None:
-            ws_tac.append(["Joint O&M", om_total, om_total])
-        if rrr_share is not None:
-            ws_tac.append(
-                [
-                    "Annual Replacement and Rehabilitation Estimate",
-                    rrr_share,
-                    rrr_share,
-                ]
-            )
         if om_scaled is not None:
             ws_tac.append(["Joint O&M", om_scaled, om_scaled])
         if rrr_scaled is not None:
@@ -807,7 +796,6 @@ def storage_calculator():
         ctot = st.session_state.get("updated_storage", {}).get("CTot", 0.0)
         om_total = st.session_state.get("joint_om", {}).get("total", 0.0)
         rrr_annual = st.session_state.get("rrr_mit", {}).get("annualized", 0.0)
-        rrr_share = rrr_annual * p
         om_scaled = om_total * p
         rrr_scaled = rrr_annual * p
         crec = ctot * p
@@ -840,15 +828,6 @@ def storage_calculator():
                 help="Number of years over which storage costs are annualized.",
             )
             capital1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
-            total1 = capital1 + om_total + rrr_share
-            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
-            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
-            st.metric("Annualized Storage Cost", f"${capital1:,.2f}")
-            st.metric("Joint O&M", f"${om_total:,.2f}")
-            st.metric(
-                "Annual Replacement and Rehabilitation Estimate",
-                f"${rrr_share:,.2f}",
-            )
             total1 = capital1 + om_scaled + rrr_scaled
             st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
             st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
@@ -880,15 +859,6 @@ def storage_calculator():
                 help="Number of years over which storage costs are annualized.",
             )
             capital2 = ctot * p * capital_recovery_factor(drate2 / 100.0, years2)
-            total2 = capital2 + om_total + rrr_share
-            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
-            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
-            st.metric("Annualized Storage Cost", f"${capital2:,.2f}")
-            st.metric("Joint O&M", f"${om_total:,.2f}")
-            st.metric(
-                "Annual Replacement and Rehabilitation Estimate",
-                f"${rrr_share:,.2f}",
-            )
             total2 = capital2 + om_scaled + rrr_scaled
             st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
             st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
