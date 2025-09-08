@@ -489,10 +489,10 @@ def storage_calculator():
 
     with st.form("storage_form"):
         tc = st.number_input(
-            "Total construction cost (TC)",
+            "Total Joint Use Construction Cost (TC)",
             min_value=0.0,
             value=1000000.0,
-            help="Total costs of construction updated using CWCCIS and ENR.",
+            help="Total joint-use construction costs updated using CWCCIS and ENR.",
         )
         sp = st.number_input(
             "Specific costs (SP)",
@@ -501,10 +501,10 @@ def storage_calculator():
             help="Costs of identifiable project features for a specific purpose, updated using CWCCIS and ENR.",
         )
         storage_reallocated = st.number_input(
-            "Storage reallocated (ac-ft)",
+            "Estimated Storage to be Reallocated (ac-ft)",
             min_value=0.0,
             value=1000.0,
-            help="Volume of storage being reallocated.",
+            help="Estimated volume of storage being reallocated.",
         )
         total_usable_storage = st.number_input(
             "Total usable storage space (ac-ft)",
@@ -524,9 +524,9 @@ def storage_calculator():
         st.success(f"Updated cost of storage: ${cost:,.2f}")
         st.session_state.storage_cost = cost
         st.session_state.storage_inputs = {
-            "Total construction cost (TC)": tc,
+            "Total Joint Use Construction Cost (TC)": tc,
             "Specific costs (SP)": sp,
-            "Storage reallocated (ac-ft)": storage_reallocated,
+            "Estimated Storage to be Reallocated (ac-ft)": storage_reallocated,
             "Total usable storage space (ac-ft)": total_usable_storage,
         }
 
