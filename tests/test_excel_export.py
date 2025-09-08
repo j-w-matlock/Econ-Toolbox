@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 import pathlib, sys
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from streamlit_app import build_excel
+from streamlit_app import build_excel, capital_recovery_factor
 
 
 def test_build_excel_includes_storage_sheets():
@@ -55,7 +56,15 @@ def test_build_excel_includes_storage_sheets():
         "rate2": 6.0,
         "periods2": 40,
     }
-    st.session_state.storage_cost = {"scenario1": 25.0, "scenario2": 30.0}
+    p = st.session_state.storage_capacity["P"]
+    ctot = st.session_state.updated_storage["CTot"]
+    inputs = st.session_state.total_annual_cost_inputs
+    cap1 = ctot * p * capital_recovery_factor(inputs["rate1"] / 100.0, inputs["periods1"])
+    cap2 = ctot * p * capital_recovery_factor(inputs["rate2"] / 100.0, inputs["periods2"])
+    rrr_share = st.session_state.rrr_mit["annualized"] * p
+    total1 = cap1 + st.session_state.joint_om["total"] + rrr_share
+    total2 = cap2 + st.session_state.joint_om["total"] + rrr_share
+    st.session_state.storage_cost = {"scenario1": total1, "scenario2": total2}
 
     buffer = build_excel()
     wb = openpyxl.load_workbook(buffer)
@@ -92,6 +101,11 @@ def test_build_excel_includes_storage_sheets():
     assert ws_tac["A3"].value == "Cost of Storage Recommendation"
     assert ws_tac["B3"].value == 1.5
     assert ws_tac["C3"].value == 1.5
+    assert ws_tac["A6"].value == "Annual Replacement and Rehabilitation Estimate"
+    assert ws_tac["B6"].value == pytest.approx(rrr_share)
+    assert ws_tac["C6"].value == pytest.approx(rrr_share)
+    assert ws_tac["B7"].value == pytest.approx(total1)
+    assert ws_tac["C7"].value == pytest.approx(total2)
     assert ws_tac["A5"].value == "Joint O&M"
     assert ws_tac["B5"].value == 7.5
     assert ws_tac["C5"].value == 7.5
