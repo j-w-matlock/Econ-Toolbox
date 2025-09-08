@@ -675,15 +675,16 @@ def storage_calculator():
             ),
         }
         raw_table = st.data_editor(
-            st.session_state.usc_table,
+            st.session_state.usc_table.copy(),
             num_rows="dynamic",
             width="stretch",
             column_config=usc_cols,
             key="usc_table_editor",
         )
-        # ``data_editor`` returns a reference that is mutated in place, which can
-        # cause the first edit to be lost when the widget reruns.  Copy the
-        # result so that session state holds the updated values immediately.
+        # ``data_editor`` mutates its input in place and returns a reference to
+        # the same object, which can cause the first edit to be lost on rerun.
+        # To ensure edits persist immediately, pass a copy to the editor and
+        # store a copy of the result back into session state.
         st.session_state.usc_table = raw_table.copy()
         table = raw_table.assign(
             **{"Updated Cost": raw_table["Actual Cost"] * raw_table["Update Factor"]}
@@ -745,15 +746,16 @@ def storage_calculator():
             ),
         }
         raw_costs = st.data_editor(
-            st.session_state.rrr_costs,
+            st.session_state.rrr_costs.copy(),
             num_rows="dynamic",
             width="stretch",
             column_config=cost_cols,
             key="rrr_costs_editor",
         )
         # Preserve dtypes (especially ``Item``) on update. ``data_editor`` may
-        # return a view of the original DataFrame which is mutated in place, so
-        # copy the result to ensure edits persist after the first entry.
+        # return a view of the original DataFrame which is mutated in place.
+        # Pass a copy to the widget and store a copy of the result so that the
+        # first edit persists after the widget reruns.
         st.session_state.rrr_costs = (
             raw_costs.astype({"Item": "object", "Future Cost": "float", "Year": "int"}, errors="ignore").copy()
         )
