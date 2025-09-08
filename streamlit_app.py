@@ -495,7 +495,7 @@ def storage_calculator():
             help="Total joint-use construction costs updated using CWCCIS and ENR.",
         )
         sp = st.number_input(
-            "Specific costs (SP)",
+            "Water Supply Specific Costs (SP)",
             min_value=0.0,
             value=100000.0,
             help="Costs of identifiable project features for a specific purpose, updated using CWCCIS and ENR.",
@@ -525,7 +525,7 @@ def storage_calculator():
         st.session_state.storage_cost = cost
         st.session_state.storage_inputs = {
             "Total Joint Use Construction Cost (TC)": tc,
-            "Specific costs (SP)": sp,
+            "Water Supply Specific Costs (SP)": sp,
             "Estimated Storage to be Reallocated (ac-ft)": storage_reallocated,
             "Total usable storage space (ac-ft)": total_usable_storage,
         }
