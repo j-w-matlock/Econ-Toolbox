@@ -108,21 +108,21 @@ where \(U\) is expected annual user days, \(V\) is a visitation multiplier, and 
 A second tab lists ranking criteria and the point-to-dollar conversion table for transparency.
 
 ### 5. Water Demand Forecast
-Projects combined municipal and industrial demand following ER 1105-2-100 guidance.
+Projects combined municipal and industrial demand following ER 1105-2-100 guidance.  Inputs for population growth, industrial demand, conservation, and system losses can vary by year through dedicated sub-tabs.
 
-For base population \(P_0\) and annual growth rate \(g\):
+For base population \(P_0\) and annual growth rate \(g_t\):
 $$
-P_t = P_0 (1+g)^t
+P_t = P_{t-1} (1+g_t)
 $$
 Demands are then
 $$
 \begin{aligned}
-M_t &= \frac{P_t \times u \times 365}{10^6},\\
-I_t &= M_t \times f,\\
-T_t &= (M_t + I_t) \times (1+\ell),
+M_t &= \frac{P_t \times u_t \times 365}{10^6},\\
+I_t &= M_t \times f_t,\\
+T_t &= (M_t + I_t) \times (1+\ell_t),
 \end{aligned}
 $$
-where \(u\) is per-capita municipal use (gallons/person/day), \(f\) is the industrial demand factor, and \(\ell\) represents system losses.  Results are reported in million gallons per year (MGY).
+where \(u_t\) is per-capita municipal use (adjusted for conservation), \(f_t\) is the industrial demand factor, and \(\ell_t\) represents system losses for year \(t\).  Results are reported in million gallons per year (MGY).
 
 ---
 
@@ -140,7 +140,7 @@ where \(u\) is per-capita municipal use (gallons/person/day), \(f\) is the indus
 - **Storage Cost and O&M:** Cost update factors and CWCCI ratios must be entered manually; automatic retrieval from current indices would reduce errors.
 - **Project Cost Annualizer:** IDC calculation requires monthly detail when costs are irregular; importing a schedule from CSV would streamline entry.
 - **Recreation Benefit:** UDV schedules are hard-coded for a single fiscal year; updating values when new schedules are released is manual.
-- **Water Demand Forecast:** Forecast assumes constant growth and demand factors; incorporating scenario analysis or time-varying inputs would enhance realism.
+- **Water Demand Forecast:** Supports year-specific growth, industrial demand, conservation, and loss factors. Scenario analysis or probabilistic inputs could further enhance realism.
 
 ---
 
