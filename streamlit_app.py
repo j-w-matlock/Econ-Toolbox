@@ -9,8 +9,8 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import LineChart, Reference
 
-# Conversion table from point rankings to unit day values ($/user day)
-POINT_VALUE_TABLE = pd.DataFrame(
+# Default conversion table from point rankings to unit day values ($/user day)
+DEFAULT_UDV_TABLE = pd.DataFrame(
     {
         "Points": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
         "General Recreation": [
@@ -1113,6 +1113,9 @@ def udv_analysis():
     st.info(
         "Estimate annual recreation benefits using USACE Unit Day Values (UDV).",
     )
+    if "udv_table" not in st.session_state:
+        st.session_state.udv_table = DEFAULT_UDV_TABLE.copy()
+    udv_table = st.session_state.udv_table
     tab_calc, tab_rank = st.tabs(["Calculator", "Ranking Criteria"])
     with tab_calc:
         rec_type = st.selectbox(
@@ -1149,7 +1152,9 @@ def udv_analysis():
         table_col = column_map[(rec_type, activity)]
         udv_calc = float(
             np.interp(
-                points, POINT_VALUE_TABLE["Points"], POINT_VALUE_TABLE[table_col]
+                points,
+                udv_table["Points"],
+                udv_table[table_col],
             )
         )
         udv_value = st.number_input(
@@ -1236,7 +1241,11 @@ def udv_analysis():
         }
         st.table(pd.DataFrame(criteria_table).set_index("Criteria"))
         st.subheader("Table 2. Conversion of Points to Dollar Values")
-        st.table(POINT_VALUE_TABLE.set_index("Points"))
+        st.session_state.udv_table = persistent_data_editor(
+            st.session_state.udv_table,
+            key="udv_table_editor",
+            num_rows="dynamic",
+        )
     export_button()
 
 
