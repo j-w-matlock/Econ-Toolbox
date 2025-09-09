@@ -94,6 +94,40 @@ def ead_trapezoidal(prob, damages):
     )
 
 
+def sort_and_validate_probabilities(df: pd.DataFrame) -> pd.DataFrame:
+    """Sort exceedance probabilities and warn on invalid inputs.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing a ``"Frequency"`` column to sort and validate.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame sorted in descending order of ``"Frequency"`` with
+        validation messages emitted for potential issues.
+    """
+
+    freq = df["Frequency"].astype(float).to_numpy()
+    order = np.argsort(freq)[::-1]
+    if not np.all(order == np.arange(len(freq))):
+        st.info("Sorting exceedance probabilities in descending order.")
+        df = df.iloc[order].reset_index(drop=True)
+        freq = df["Frequency"].astype(float).to_numpy()
+
+    if np.any((freq < 0) | (freq > 1)):
+        st.warning("Frequencies should be between 0 and 1.")
+
+    if np.any(np.diff(freq) > 0):
+        st.warning("Frequencies should monotonically decrease.")
+
+    if not np.isclose(freq[0], 1.0):
+        st.warning("Frequencies should start at 1.")
+
+    return df
+
+
 def updated_storage_cost(tc, sp, storage_reallocated, total_usable_storage):
     """Compute updated cost of storage for reservoir reallocations."""
     tc = float(tc)
@@ -546,13 +580,10 @@ def ead_calculator():
         "Calculate EAD",
         help="Run the trapezoidal method on the frequency and damage data.",
     ):
-        df = st.session_state.table.dropna(subset=["Frequency"]).sort_values(
-            "Frequency", ascending=False
-        )
+        df = st.session_state.table.dropna(subset=["Frequency"])
+        df = sort_and_validate_probabilities(df)
         freq = df["Frequency"].to_numpy()
-        if not np.isclose(freq[0], 1.0) or np.any(np.diff(freq) > 0):
-            st.warning("Frequencies should start at 1 and monotonically decrease to 0.")
-        missing_zero = freq[-1] != 0
+        missing_zero = not np.isclose(freq[-1], 0.0)
         if missing_zero:
             st.info(
                 "Final frequency not 0; appending zero-frequency point using last damage value."
