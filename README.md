@@ -138,7 +138,7 @@ where \(u_t\) is per-capita municipal use (adjusted for conservation), \(f_t\) i
 
 - **Storage Cost and O&M:** Cost update factors and CWCCI ratios must be entered manually; automatic retrieval from current indices would reduce errors.
 - **Project Cost Annualizer:** IDC calculation requires monthly detail when costs are irregular; importing a schedule from CSV would streamline entry.
-- **Recreation Benefit:** UDV schedules are hard-coded for a single fiscal year; updating values when new schedules are released is manual.
+- **Recreation Benefit:** UDV schedules default to a single fiscal year; use the editable table in the UDV tab to update values when new schedules are released.
 - **Water Demand Forecast:** Supports year-specific growth, industrial demand, conservation, and loss factors. Scenario analysis or probabilistic inputs could further enhance realism.
 
 ---
