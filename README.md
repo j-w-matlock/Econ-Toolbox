@@ -1,124 +1,150 @@
-# 🎈 Economic toolbox
+# Economic Toolbox
 
-A Streamlit application featuring an Expected Annual Damage (EAD) calculator,
-an updated cost of storage calculator, a project cost annualizer that produces
-annualized construction costs and benefit–cost ratios, and a Unit Day Value
-(UDV) analysis tab for estimating recreation benefits.
+An interactive [Streamlit](https://streamlit.io/) application that gathers common economic-engineering calculations into a single interface.  The toolbox is organized into tabs, each implementing a specific set of formulas used by practitioners in water-resource planning and benefit–cost analysis.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
 
-### How to run it on your own machine
+---
 
-1. Install the requirements
+## Getting Started
 
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
-
-## Formulas
-
-The app implements standard economic engineering equations. Variables are
-defined beneath each equation so results can be replicated by hand.
-
-### Expected Annual Damage (EAD)
-
-```
-EAD = sum from i = 1 to n - 1 of 0.5 * (D_i + D_{i+1}) * (P_i - P_{i+1})
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
 ```
 
-where P_i are exceedance probabilities listed from 1 down to 0 and D_i are the
-corresponding damages. The summation applies the trapezoidal rule to integrate
-the damage–frequency curve.
+Every tab stores its inputs in the session state so results can be exported or revisited later in the session.
 
-### Updated Cost of Storage
+---
 
-```
-Updated Cost = (TC - SP) * (S_r / S_t)
-```
+## Tab Reference
 
-with total joint-use construction cost TC, specific costs SP, estimated storage
-to be reallocated S_r, and total usable storage S_t.
+### 1. Expected Annual Damage (EAD)
+Estimate flood damages by integrating a damage–frequency curve.  Damages \(D_i\) are paired with exceedance probabilities \(P_i\) listed from 1 down to 0.  The trapezoidal rule yields
 
-### Interest During Construction (IDC)
+$$
+\text{EAD} = \sum_{i=1}^{n-1} \tfrac{1}{2}\left(D_i + D_{i+1}\right)\left(P_i - P_{i+1}\right).
+$$
 
-```
-IDC = sum from i = 1 to m of C_i * (r / 12) * t_i
-```
+Optional stage information allows plotting stage–damage and stage–frequency relations.  Frequencies must decrease monotonically for the integration to be valid.
 
-where C_i is the cost incurred in month i, r is the annual interest rate
-expressed as a decimal, m is the construction period in months, and t_i is the
-number of months the expenditure accrues interest. Beginning-, middle-, and
-end-of-month expenditures correspond to t_i = m - i + 1, m - i + 0.5, and m - i,
-respectively. When costs are normalized across the construction period, C_i =
-T / m with the first month treated as a beginning-of-month expenditure and the
-remaining months at midpoints.
+### 2. Storage Cost and O&M Calculator
+A multi-step worksheet for estimating the annual cost of reallocating reservoir storage.
 
-### Present Value of Planned Future Costs
+1. **Storage Capacity** – computes the share of conservation storage to be reallocated.
+   $$
+   P = \frac{S_{\text{rec}}}{S_{\text{tot}}}
+   $$
+   where \(S_{\text{rec}}\) is recommended storage and \(S_{\text{tot}}\) is total conservation storage.
 
-```
-PV = C * (1 + r)^(-(y - b))
-```
+2. **Joint Costs O&M** – sums annual operations and maintenance.
+   $$
+   O\!M_{\text{total}} = O + M
+   $$
 
-where C is a cost incurred in year y, r is the discount rate, and b is the base
-year.
+3. **Updated Storage Costs** – updates historical construction costs using cost index factors.
+   $$
+   C_{\text{Tot}} = \sum_{j} C_{j}^{\text{act}} \times U_{j}
+   $$
+   with actual costs \(C_{j}^{\text{act}}\) and update factors \(U_j\).
 
-### Capital Recovery Factor (CRF)
+4. **RR&R and Mitigation** – discounts future rehabilitation/replacement and mitigation costs to the base year, updates them with the CWCCIS ratio, and annualizes using a capital recovery factor (CRF).
 
-```
-CRF = r * (1 + r)^n / ((1 + r)^n - 1)
-```
+   Present value for each item incurred in year \(y\):
+   $$
+   PV = \frac{F}{(1+r)^{(y-b)}}
+   $$
+   Updated cost: \(C^{\*} = \text{CWCCI} \times \sum PV\)  
+   Annualized cost: \(C_a = C^{\*} \times \text{CRF}(r,n)\), where
+   $$
+   \text{CRF}(r,n) = \frac{r(1+r)^n}{(1+r)^n-1}.
+   $$
 
-for discount rate r and period of analysis n years. If r = 0, then CRF = 1 / n.
+5. **Total Annual Cost** – combines capital, O&M, and RR&R/mitigation.
+   $$
+   C_{\text{rec}} = C_{\text{Tot}} \times P\\
+   C_{\text{capital}} = C_{\text{rec}} \times \text{CRF}(r,n)\\
+   O\!M_{\text{scaled}} = O\!M_{\text{total}} \times P\\
+   R_{\text{scaled}} = C_a \times P\\
+   \text{Total Annual Cost} = C_{\text{capital}} + O\!M_{\text{scaled}} + R_{\text{scaled}}.
+   $$
+   A second scenario is provided for alternative discount rates and analysis periods (without RR&R).
 
-### Annualized Costs and Benefit–Cost Ratio
+### 3. Project Cost Annualizer
+Calculates annualized construction costs and benefit–cost ratio.
 
-```
-Annual Construction = Total Investment * CRF
-Annual Total Cost = Annual Construction + Annual O&M
-Benefit–Cost Ratio = Annual Benefits / Annual Total Cost
-```
+* **Interest During Construction (IDC)** distributes costs over the construction period:
+  $$
+  \text{IDC} = \sum_{i=1}^{m} C_i \left(\frac{r}{12}\right) t_i
+  $$
+  where \(C_i\) is the cost incurred in month \(i\), \(r\) the annual interest rate, and \(t_i\) the months that funds accrue interest (beginning = \(m-i+1\), middle = \(m-i+0.5\), end = \(m-i\)).
+* **Present Value of Planned Future Costs**
+  $$
+  PV = C (1+r)^{-(y-b)}
+  $$
+  for a cost \(C\) in year \(y\) discounted to base year \(b\).
+* **Annualization and Benefit–Cost Ratio**
+  $$
+  \begin{aligned}
+  \text{CRF}(r,n) &= \frac{r(1+r)^n}{(1+r)^n-1},\\
+  C_{\text{annual}} &= (C_0 + \text{IDC} + \sum PV) \times \text{CRF}(r,n),\\
+  \text{Annual Total Cost} &= C_{\text{annual}} + O\!M,\\
+  \text{BCR} &= \frac{\text{Annual Benefits}}{\text{Annual Total Cost}}.
+  \end{aligned}
+  $$
 
-### Recreation Benefits via Unit Day Values
+### 4. Recreation Benefit (Unit Day Value)
+Implements USACE Unit Day Value methodology.
 
-```
-Adjusted User Days = User Days × Expected Visitation
-Annual Recreation Benefit = UDV × Adjusted User Days
-```
+Adjusted user days and annual benefit are computed as
+$$
+\begin{aligned}
+\text{Adjusted User Days} &= U \times V,\\
+\text{Annual Recreation Benefit} &= \text{UDV} \times \text{Adjusted User Days},
+\end{aligned}
+$$
+where \(U\) is expected annual user days, \(V\) is a visitation multiplier, and UDV is the unit day value determined from ranking points.
 
-where UDV is the unit day value from the latest USACE schedule. User Days
-represent the expected annual recreation days, and Expected Visitation is
-applied as a multiplier to adjust the user day estimate. The application
-converts recreation quality point rankings to unit day values using USACE
-schedules for general recreation, fishing and hunting, and other specialized
-activities such as boating.
+A second tab lists ranking criteria and the point-to-dollar conversion table for transparency.
 
-### Municipal and Industrial Water Demand Forecast
+### 5. Water Demand Forecast
+Projects combined municipal and industrial demand following ER 1105-2-100 guidance.
 
-The forecasting tab projects combined municipal and industrial water demand.
-Required inputs include the base year, number of projection years, base-year
-population (or an annual population growth rate), per-capita municipal use,
-an industrial demand factor (percent of municipal demand), and system losses.
-Population is grown annually and converted to demand with:
+For base population \(P_0\) and annual growth rate \(g\):
+$$
+P_t = P_0 (1+g)^t
+$$
+Demands are then
+$$
+\begin{aligned}
+M_t &= \frac{P_t \times u \times 365}{10^6},\\
+I_t &= M_t \times f,\\
+T_t &= (M_t + I_t) \times (1+\ell),
+\end{aligned}
+$$
+where \(u\) is per-capita municipal use (gallons/person/day), \(f\) is the industrial demand factor, and \(\ell\) represents system losses.  Results are reported in million gallons per year (MGY).
 
-```
-Municipal Demand = Population × Per-capita Use × 365 / 1,000,000
-Industrial Demand = Municipal Demand × Industrial Factor
-Total Demand = (Municipal + Industrial) × (1 + System Losses)
-```
-
-The implementation follows U.S. Army Corps of Engineers guidance for municipal
-and industrial (M&I) water supply studies in ER 1105-2-100 and related policy
-memoranda.
+---
 
 ## References
+- U.S. Army Corps of Engineers. *Engineering Manual 1110-2-1619: Risk-Based Analysis for Flood Damage Reduction Studies* (1996).
+- U.S. Office of Management and Budget. *Circular A-94: Guidelines and Discount Rates for Benefit-Cost Analysis of Federal Programs* (1992).
+- U.S. Army Corps of Engineers. Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR) indices.
+- U.S. Army Corps of Engineers. *Planning Guidance Notebook* (ER 1105-2-100) (2000).
 
-- U.S. Army Corps of Engineers. (1996). *Engineering Manual 1110-2-1619: Risk-Based Analysis for Flood Damage Reduction Studies*.
-- U.S. Office of Management and Budget. (1992). *Circular A-94: Guidelines and Discount Rates for Benefit-Cost Analysis of Federal Programs*.
-- U.S. Army Corps of Engineers. Civil Works Construction Cost Index System (CWCCIS) and Engineering News Record (ENR) cost indexes.
-- U.S. Army Corps of Engineers. (2000). *Planning Guidance Notebook* (ER 1105-2-100).
+---
+
+## Known Issues and Areas for Improvement
+
+- **EAD:** Assumes exceedance probabilities are pre-sorted and monotonic; automatic sorting or validation could improve usability.
+- **Storage Cost and O&M:** Cost update factors and CWCCI ratios must be entered manually; automatic retrieval from current indices would reduce errors.
+- **Project Cost Annualizer:** IDC calculation requires monthly detail when costs are irregular; importing a schedule from CSV would streamline entry.
+- **Recreation Benefit:** UDV schedules are hard-coded for a single fiscal year; updating values when new schedules are released is manual.
+- **Water Demand Forecast:** Forecast assumes constant growth and demand factors; incorporating scenario analysis or time-varying inputs would enhance realism.
+
+---
+
+## License
+
+Distributed under the terms of the [MIT License](LICENSE).
+
