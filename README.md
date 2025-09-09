@@ -26,7 +26,7 @@ $$
 \text{EAD} = \sum_{i=1}^{n-1} \tfrac{1}{2}\left(D_i + D_{i+1}\right)\left(P_i - P_{i+1}\right).
 $$
 
-Optional stage information allows plotting stage–damage and stage–frequency relations.  Frequencies must decrease monotonically for the integration to be valid.
+Optional stage information allows plotting stage–damage and stage–frequency relations.  Exceedance probabilities are automatically sorted in descending order and validated to ensure they decrease monotonically for the integration to be valid.
 
 ### 2. Storage Cost and O&M Calculator
 A multi-step worksheet for estimating the annual cost of reallocating reservoir storage.
@@ -136,7 +136,6 @@ where \(u_t\) is per-capita municipal use (adjusted for conservation), \(f_t\) i
 
 ## Known Issues and Areas for Improvement
 
-- **EAD:** Assumes exceedance probabilities are pre-sorted and monotonic; automatic sorting or validation could improve usability.
 - **Storage Cost and O&M:** Cost update factors and CWCCI ratios must be entered manually; automatic retrieval from current indices would reduce errors.
 - **Project Cost Annualizer:** IDC calculation requires monthly detail when costs are irregular; importing a schedule from CSV would streamline entry.
 - **Recreation Benefit:** UDV schedules are hard-coded for a single fiscal year; updating values when new schedules are released is manual.
