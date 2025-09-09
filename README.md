@@ -15,6 +15,16 @@ streamlit run streamlit_app.py
 
 Every tab stores its inputs in the session state so results can be exported or revisited later in the session.
 
+### Desktop App
+
+A minimal desktop interface is provided for exploratory use without Streamlit:
+
+```bash
+python desktop_app.py
+```
+
+The script opens a small Tkinter window that computes the capital recovery factor.
+
 ---
 
 ## Tab Reference
