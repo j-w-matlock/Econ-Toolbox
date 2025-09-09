@@ -687,16 +687,25 @@ def storage_calculator():
                 "Update Factor", min_value=0.0, format="%.5f"
             ),
         }
-        raw_table = persistent_data_editor(
-            st.session_state.usc_table,
-            key="usc_table_editor",
-            num_rows="dynamic",
-            width="stretch",
-            column_config=usc_cols,
-        )
-        st.session_state.usc_table = raw_table.copy()
-        table = raw_table.assign(
-            **{"Updated Cost": raw_table["Actual Cost"] * raw_table["Update Factor"]}
+        with st.form("usc_table_form"):
+            raw_table = persistent_data_editor(
+                st.session_state.usc_table,
+                key="usc_table_editor",
+                num_rows="dynamic",
+                width="stretch",
+                column_config=usc_cols,
+            )
+            usc_submitted = st.form_submit_button(
+                "Save table", help="Apply edits to the cost table above."
+            )
+        if usc_submitted:
+            st.session_state.usc_table = raw_table.copy()
+
+        table = st.session_state.usc_table.assign(
+            **{
+                "Updated Cost": st.session_state.usc_table["Actual Cost"]
+                * st.session_state.usc_table["Update Factor"]
+            }
         )
         st.table(table)
         ctot = float(table["Updated Cost"].sum())
@@ -754,20 +763,29 @@ def storage_calculator():
                 "Year", min_value=0, step=1, format="%d"
             ),
         }
-        raw_costs = persistent_data_editor(
-            st.session_state.rrr_costs,
-            key="rrr_costs_editor",
-            num_rows="dynamic",
-            width="stretch",
-            column_config=cost_cols,
-        )
-        # Preserve dtypes (especially ``Item``) on update.
-        st.session_state.rrr_costs = (
-            raw_costs.astype({"Item": "object", "Future Cost": "float", "Year": "int"}, errors="ignore").copy()
-        )
+        with st.form("rrr_costs_form"):
+            raw_costs = persistent_data_editor(
+                st.session_state.rrr_costs,
+                key="rrr_costs_editor",
+                num_rows="dynamic",
+                width="stretch",
+                column_config=cost_cols,
+            )
+            rrr_submitted = st.form_submit_button(
+                "Save table", help="Apply edits to the cost table above."
+            )
+        if rrr_submitted:
+            # Preserve dtypes (especially ``Item``) on update.
+            st.session_state.rrr_costs = (
+                raw_costs.astype(
+                    {"Item": "object", "Future Cost": "float", "Year": "int"},
+                    errors="ignore",
+                ).copy()
+            )
+
         rate_dec = rate / 100.0
-        if not raw_costs.empty:
-            costs = raw_costs.copy()
+        costs = st.session_state.rrr_costs.copy()
+        if not costs.empty:
             costs["PV Factor"] = 1 / (
                 (1 + rate_dec) ** (costs["Year"] - base_year)
             )
@@ -775,7 +793,6 @@ def storage_calculator():
             st.table(costs)
             total_pv = float(costs["Present Value"].sum())
         else:
-            costs = pd.DataFrame()
             total_pv = 0.0
         updated_cost = total_pv * cwcci
         crf = capital_recovery_factor(rate_dec, periods)
