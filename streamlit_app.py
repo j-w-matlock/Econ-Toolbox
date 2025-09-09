@@ -1222,51 +1222,123 @@ def water_demand_forecast():
             step=100.0,
             help="Population in the base year.",
         )
-        growth_rate = (
-            st.number_input(
-                "Annual Population Growth Rate (%)",
-                value=1.0,
-                step=0.1,
-                help="Average annual growth rate for population.",
-            )
-            / 100.0
-        )
         per_capita = st.number_input(
             "Per-capita Municipal Demand (gallons/person/day)",
             min_value=0.0,
             value=100.0,
             help="Typical municipal use per person.",
         )
-        industrial_factor = (
-            st.number_input(
-                "Industrial Demand Factor (% of municipal)",
+
+        pop_tab, ind_tab, loss_tab, cons_tab = st.tabs(
+            ["Population", "Industry", "Losses", "Conservation"]
+        )
+
+        years = np.arange(base_year, base_year + projection_years + 1)
+        growth_years = years[1:]
+
+        with pop_tab:
+            default_growth = st.number_input(
+                "Default Annual Growth Rate (%)",
+                value=1.0,
+                step=0.1,
+                help="Average annual population growth rate.",
+            )
+            growth_df = st.data_editor(
+                pd.DataFrame(
+                    {
+                        "Year": growth_years,
+                        "Growth Rate (%)": [default_growth] * len(growth_years),
+                    }
+                ),
+                num_rows="dynamic",
+                key="growth_df",
+            )
+
+        with ind_tab:
+            default_ind = st.number_input(
+                "Default Industrial Demand Factor (% of municipal)",
                 min_value=0.0,
                 value=20.0,
                 step=1.0,
                 help="Industrial demand as a percent of municipal demand.",
             )
-            / 100.0
-        )
-        system_losses = (
-            st.number_input(
-                "System Losses (%)",
+            industrial_df = st.data_editor(
+                pd.DataFrame(
+                    {
+                        "Year": years,
+                        "Industrial Factor (%)": [default_ind] * len(years),
+                    }
+                ),
+                num_rows="dynamic",
+                key="industrial_df",
+            )
+
+        with loss_tab:
+            default_loss = st.number_input(
+                "Default System Losses (%)",
                 min_value=0.0,
                 value=10.0,
                 step=1.0,
                 help="Distribution losses as a percent of total demand.",
             )
-            / 100.0
-        )
+            losses_df = st.data_editor(
+                pd.DataFrame(
+                    {
+                        "Year": years,
+                        "System Losses (%)": [default_loss] * len(years),
+                    }
+                ),
+                num_rows="dynamic",
+                key="losses_df",
+            )
+
+        with cons_tab:
+            default_cons = st.number_input(
+                "Default Conservation Reduction (%)",
+                min_value=0.0,
+                value=0.0,
+                step=1.0,
+                help="Percent reduction in demand from conservation measures.",
+            )
+            cons_df = st.data_editor(
+                pd.DataFrame(
+                    {
+                        "Year": years,
+                        "Conservation (%)": [default_cons] * len(years),
+                    }
+                ),
+                num_rows="dynamic",
+                key="cons_df",
+            )
+
         submitted = st.form_submit_button("Run Forecast")
 
     if submitted:
-        years = np.arange(base_year, base_year + projection_years + 1)
-        pops = base_pop * (1 + growth_rate) ** np.arange(0, projection_years + 1)
-        input_df = pd.DataFrame({"Year": years, "Population": pops})
+        growth_rates = growth_df["Growth Rate (%)"].to_numpy() / 100
+        pops = [base_pop]
+        for gr in growth_rates:
+            pops.append(pops[-1] * (1 + gr))
+        pops = np.array(pops)
 
-        municipal_mgy = pops * per_capita * 365 / 1e6
-        industrial_mgy = municipal_mgy * industrial_factor
-        total_mgy = (municipal_mgy + industrial_mgy) * (1 + system_losses)
+        industrial_factors = industrial_df["Industrial Factor (%)"].to_numpy() / 100
+        loss_factors = losses_df["System Losses (%)"].to_numpy() / 100
+        conservation_rates = cons_df["Conservation (%)"].to_numpy() / 100
+        per_capita_yearly = per_capita * (1 - conservation_rates)
+
+        municipal_mgy = pops * per_capita_yearly * 365 / 1e6
+        industrial_mgy = municipal_mgy * industrial_factors
+        total_mgy = (municipal_mgy + industrial_mgy) * (1 + loss_factors)
+
+        input_df = pd.DataFrame(
+            {
+                "Year": years,
+                "Population": pops.round(0).astype(int),
+                "Growth Rate (%)": np.concatenate(([np.nan], growth_rates * 100)),
+                "Industrial Factor (%)": industrial_factors * 100,
+                "System Losses (%)": loss_factors * 100,
+                "Conservation (%)": conservation_rates * 100,
+            }
+        )
         result_df = pd.DataFrame(
             {
                 "Year": years,
@@ -1280,7 +1352,7 @@ def water_demand_forecast():
         st.session_state.water_demand_results = result_df
 
     if st.session_state.get("water_input_table") is not None:
-        st.subheader("Population Projections")
+        st.subheader("Input Assumptions")
         st.table(st.session_state.water_input_table)
 
     result_df = st.session_state.get("water_demand_results", pd.DataFrame())
