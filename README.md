@@ -25,6 +25,16 @@ python desktop_app.py
 
 The script opens a small Tkinter window that computes the capital recovery factor.
 
+### C# Desktop App
+
+A separate Windows desktop application using C# and the MVVM pattern lives under `csharp/EconToolbox.Desktop`. It mirrors the calculator features of the Streamlit and Tkinter interfaces.
+
+```bash
+dotnet build csharp/EconToolbox.Desktop
+dotnet run --project csharp/EconToolbox.Desktop
+```
+
+This project is isolated from the existing Python code so the Streamlit application continues to run unaffected.
 ---
 
 ## Tab Reference
