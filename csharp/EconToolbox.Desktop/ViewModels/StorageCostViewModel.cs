@@ -50,7 +50,7 @@ namespace EconToolbox.Desktop.ViewModels
 
         private void Compute()
         {
-            double updated = EconomicCalculator.UpdatedStorageCost(TotalCost, StoragePrice, StorageReallocated, TotalStorage);
+            double updated = StorageCostModel.Compute(TotalCost, StoragePrice, StorageReallocated, TotalStorage);
             Result = $"Updated cost: {updated:F2}";
         }
     }

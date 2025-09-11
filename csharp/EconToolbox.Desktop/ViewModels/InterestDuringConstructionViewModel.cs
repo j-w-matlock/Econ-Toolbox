@@ -67,7 +67,7 @@ namespace EconToolbox.Desktop.ViewModels
                     costArr = Costs.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s.Trim())).ToArray();
                 if (!string.IsNullOrWhiteSpace(Timings))
                     timingArr = Timings.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray();
-                double idc = EconomicCalculator.InterestDuringConstruction(TotalInitialCost, Rate / 100.0, Months, costArr, timingArr);
+                double idc = InterestDuringConstructionModel.Compute(TotalInitialCost, Rate / 100.0, Months, costArr, timingArr);
                 Result = $"Interest during construction: {idc:F2}";
             }
             catch (Exception ex)

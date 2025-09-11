@@ -40,9 +40,9 @@ namespace EconToolbox.Desktop.ViewModels
         {
             try
             {
-                var p = _probabilities.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s.Trim()));
-                var d = _damages.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s.Trim()));
-                double ead = EconomicCalculator.EadTrapezoidal(p, d);
+                var p = _probabilities.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s.Trim())).ToArray();
+                var d = _damages.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s.Trim())).ToArray();
+                double ead = EadModel.Compute(p, d);
                 Result = $"Expected annual damage: {ead:F2}";
             }
             catch (Exception ex)

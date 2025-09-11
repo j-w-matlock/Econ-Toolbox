@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:EconToolbox.Desktop.ViewModels"
-        Title="Economic Toolbox" Height="400" Width="500">
+        Title="Economic Toolbox" Height="450" Width="600">
     <Window.DataContext>
         <vm:MainViewModel/>
     </Window.DataContext>
-    <TabControl>
+    <TabControl Margin="10">
         <TabItem Header="Capital Recovery" DataContext="{Binding CapitalRecovery}">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
@@ -20,9 +20,11 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Rate (%)" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Rate}" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Rate}" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Annual interest rate in percent. Higher rates increase the recovery factor."/>
                 <TextBlock Text="Periods" Grid.Row="1" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Periods}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Periods}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Number of periods. More periods lower each payment."/>
                 <Button Content="Compute" Command="{Binding ComputeCommand}" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,5"/>
                 <TextBlock Text="{Binding Result}" Grid.Row="3" Grid.ColumnSpan="2"/>
             </Grid>
@@ -38,11 +40,13 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
-                </Grid.Columninitions>
+                </Grid.ColumnDefinitions>
                 <TextBlock Text="Probabilities" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Probabilities}" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Probabilities}" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Comma-separated probabilities in descending order."/>
                 <TextBlock Text="Damages" Grid.Row="1" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Damages}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Damages}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Comma-separated damages matching the probabilities."/>
                 <Button Content="Compute" Command="{Binding ComputeCommand}" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,5"/>
                 <TextBlock Text="{Binding Result}" Grid.Row="3" Grid.ColumnSpan="2"/>
             </Grid>
@@ -62,13 +66,17 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Total Cost" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding TotalCost}" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding TotalCost}" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Original total cost of the asset."/>
                 <TextBlock Text="Storage Price" Grid.Row="1" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding StoragePrice}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding StoragePrice}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Current storage price."/>
                 <TextBlock Text="Reallocated" Grid.Row="2" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding StorageReallocated}" Grid.Row="2" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding StorageReallocated}" Grid.Row="2" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Amount of storage being reallocated."/>
                 <TextBlock Text="Total Storage" Grid.Row="3" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding TotalStorage}" Grid.Row="3" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding TotalStorage}" Grid.Row="3" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Total usable storage capacity."/>
                 <Button Content="Compute" Command="{Binding ComputeCommand}" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,5,0,5"/>
                 <TextBlock Text="{Binding Result}" Grid.Row="5" Grid.ColumnSpan="2"/>
             </Grid>
@@ -89,15 +97,20 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Total Cost" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding TotalInitialCost}" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding TotalInitialCost}" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Total initial project cost."/>
                 <TextBlock Text="Rate (%)" Grid.Row="1" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Rate}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Rate}" Grid.Row="1" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Annual interest rate in percent."/>
                 <TextBlock Text="Months" Grid.Row="2" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Months}" Grid.Row="2" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Months}" Grid.Row="2" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Total number of construction months."/>
                 <TextBlock Text="Monthly Costs" Grid.Row="3" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Costs}" Grid.Row="3" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Costs}" Grid.Row="3" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Optional comma-separated monthly costs."/>
                 <TextBlock Text="Timings" Grid.Row="4" Margin="0,0,5,5"/>
-                <TextBox Text="{Binding Timings}" Grid.Row="4" Grid.Column="1" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding Timings}" Grid.Row="4" Grid.Column="1" Margin="0,0,0,5"
+                         ToolTip="Comma-separated timings for each cost (beginning, middle, end)."/>
                 <Button Content="Compute" Command="{Binding ComputeCommand}" Grid.Row="5" Grid.ColumnSpan="2" Margin="0,5,0,5"/>
                 <TextBlock Text="{Binding Result}" Grid.Row="6" Grid.ColumnSpan="2"/>
             </Grid>

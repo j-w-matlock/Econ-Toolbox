@@ -36,7 +36,7 @@ namespace EconToolbox.Desktop.ViewModels
 
         private void Compute()
         {
-            double crf = EconomicCalculator.CapitalRecoveryFactor(Rate / 100.0, Periods);
+            double crf = CapitalRecoveryModel.Calculate(Rate / 100.0, Periods);
             Result = $"Capital recovery factor: {crf:F6}";
         }
     }
