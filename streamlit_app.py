@@ -5,6 +5,8 @@ import pandas as pd
 from io import BytesIO
 from pathlib import Path
 
+st.set_page_config(page_title="Economic Toolbox", page_icon="📊", layout="wide")
+
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.chart import LineChart, Reference
@@ -435,16 +437,9 @@ def export_button():
 
 def ead_calculator():
     """EAD calculator with data entry, charts, and results."""
-    st.write(
-        "Compute expected annual damages using the U.S. Army Corps of Engineers trapezoidal method."
-    )
+    st.header("Expected Annual Damage (EAD) Worksheet")
     st.caption(
         "Reference: U.S. Army Corps of Engineers, Engineering Manual 1110-2-1619 (1996)."
-    )
-
-    st.subheader("Inputs")
-    st.info(
-        "Fill in the frequency and damage values below. Use the checkbox to add a stage column and the button to insert additional damage columns as needed."
     )
 
     if "num_damage_cols" not in st.session_state:
@@ -468,20 +463,29 @@ def ead_calculator():
             }
         )
 
-    include_stage = st.checkbox(
+    st.divider()
+    st.subheader("Step 1 — Configure Frequency–Damage Inputs")
+    st.info(
+        "Use the controls below to align with the Corps worksheet. Toggle the stage column when developing stage-based curves and insert additional damage scenarios for comparison."
+    )
+
+    controls = st.columns([3, 1])
+    include_stage = controls[0].checkbox(
         "Include stage column",
         value="Stage" in st.session_state.table.columns,
         help="Add a column for stage values to enable stage-related charts.",
     )
+    add_damage = controls[1].button(
+        "Add damage column",
+        help="Insert another damage column to compare scenarios.",
+    )
+
     if include_stage and "Stage" not in st.session_state.table.columns:
         st.session_state.table.insert(1, "Stage", [None] * len(st.session_state.table))
     elif not include_stage and "Stage" in st.session_state.table.columns:
         st.session_state.table.drop(columns="Stage", inplace=True)
 
-    if st.button(
-        "Add damage column",
-        help="Insert another damage column to compare scenarios.",
-    ):
+    if add_damage:
         st.session_state.num_damage_cols += 1
         st.session_state.table[f"Damage {st.session_state.num_damage_cols}"] = [
             None
@@ -510,33 +514,27 @@ def ead_calculator():
             "Save table", help="Apply edits to the table above."
         )
     if submitted:
-        # Store a separate copy so the saved table reflects the user's edits
-        # even after further interaction.
         st.session_state.table = data.copy()
 
     damage_cols = [c for c in st.session_state.table.columns if c.startswith("Damage")]
     charts_for_export = []
+
+    st.divider()
+    st.subheader("Step 2 — Explore Frequency Relationships")
+    st.caption(
+        "Use the tabs to review Corps-style plots that inform the trapezoidal EAD calculation."
+    )
+
+    chart_tabs = []
     chart_data = (
         st.session_state.table.dropna(subset=["Frequency"])
         .sort_values("Frequency")
         .set_index("Frequency")[damage_cols]
     )
     if not chart_data.empty and damage_cols:
-        st.subheader("Damage-Frequency Curve")
-        selected_damage = st.selectbox(
-            "Select damage column",
-            damage_cols,
-            key="df_damage",
-            help="Choose which damage column to visualize.",
-        )
-        st.line_chart(chart_data[[selected_damage]])
-        charts_for_export.append(
-            {
-                "title": "Damage-Frequency Curve",
-                "data": chart_data[[selected_damage]].reset_index(),
-            }
-        )
+        chart_tabs.append("Damage–Frequency")
 
+    stage_df = None
     if "Stage" in st.session_state.table.columns:
         stage_df = (
             st.session_state.table.dropna(subset=["Stage"])
@@ -544,37 +542,64 @@ def ead_calculator():
             .dropna(subset=["Stage"])
             .set_index("Stage")
         )
-        if not stage_df.empty:
+        if stage_df is not None and not stage_df.empty:
             if damage_cols:
-                st.subheader("Stage-Damage Curve")
-                dmg_col = st.selectbox(
-                    "Select damage column (stage)",
-                    damage_cols,
-                    key="stage_damage",
-                    help="Damage column to plot against stage values.",
-                )
-                st.line_chart(stage_df[[dmg_col]])
-                charts_for_export.append(
-                    {
-                        "title": "Stage-Damage Curve",
-                        "data": stage_df[[dmg_col]].reset_index(),
-                    }
-                )
+                chart_tabs.append("Stage–Damage")
             if "Frequency" in stage_df.columns:
-                st.subheader("Stage-Frequency Curve")
-                st.line_chart(stage_df["Frequency"])
-                charts_for_export.append(
-                    {
-                        "title": "Stage-Frequency Curve",
-                        "data": stage_df[["Frequency"]].reset_index(),
-                    }
-                )
+                chart_tabs.append("Stage–Frequency")
+
+    tab_objects = st.tabs(chart_tabs) if chart_tabs else []
+    tab_index = 0
+    if "Damage–Frequency" in chart_tabs:
+        with tab_objects[tab_index]:
+            selected_damage = st.selectbox(
+                "Damage column",
+                damage_cols,
+                key="df_damage",
+                help="Choose which damage column to visualize.",
+            )
+            st.line_chart(chart_data[[selected_damage]])
+            charts_for_export.append(
+                {
+                    "title": "Damage-Frequency Curve",
+                    "data": chart_data[[selected_damage]].reset_index(),
+                }
+            )
+        tab_index += 1
+
+    if "Stage–Damage" in chart_tabs and stage_df is not None and not stage_df.empty:
+        with tab_objects[tab_index]:
+            dmg_col = st.selectbox(
+                "Damage column",
+                damage_cols,
+                key="stage_damage",
+                help="Damage column to plot against stage values.",
+            )
+            st.line_chart(stage_df[[dmg_col]])
+            charts_for_export.append(
+                {
+                    "title": "Stage-Damage Curve",
+                    "data": stage_df[[dmg_col]].reset_index(),
+                }
+            )
+        tab_index += 1
+
+    if "Stage–Frequency" in chart_tabs and stage_df is not None and not stage_df.empty:
+        with tab_objects[tab_index]:
+            st.line_chart(stage_df["Frequency"])
+            charts_for_export.append(
+                {
+                    "title": "Stage-Frequency Curve",
+                    "data": stage_df[["Frequency"]].reset_index(),
+                }
+            )
 
     st.session_state.charts_for_export = charts_for_export
 
-    st.subheader("EAD Results")
+    st.divider()
+    st.subheader("Step 3 — Calculate Expected Annual Damages")
     st.info(
-        "Click the button below to compute expected annual damages for each damage column using trapezoidal integration."
+        "Run the trapezoidal integration once the inputs look correct. Results mirror the Corps worksheet with differences benchmarked to the first damage column."
     )
     if st.button(
         "Calculate EAD",
@@ -606,22 +631,65 @@ def ead_calculator():
             base_ead = results.get("Damage 1")
             differences = {}
             pct_changes = {}
+            summary_rows = []
+            valid_results = {
+                k: v for k, v in results.items() if v is not None
+            }
+
             for col, val in results.items():
                 if val is None:
                     st.error(
                         f"{col}: Ensure at least two paired frequency and damage values."
                     )
-                else:
-                    st.success(f"{col} Expected Annual Damage: ${val:,.2f}")
+                    continue
+                diff = None
+                pct = None
+                if col != "Damage 1" and base_ead is not None:
+                    diff = val - base_ead
+                    pct = (diff / base_ead * 100) if base_ead != 0 else np.nan
+                    differences[col] = diff
+                    pct_changes[col] = pct
+                elif col == "Damage 1":
+                    differences[col] = 0.0
+                    pct_changes[col] = 0.0
+
+                summary_rows.append(
+                    {
+                        "Scenario": col,
+                        "EAD": val,
+                        "Difference vs Damage 1": diff,
+                        "% Change": pct,
+                    }
+                )
+
+            if valid_results:
+                metric_cols = st.columns(len(valid_results))
+                for idx, (col, val) in enumerate(valid_results.items()):
+                    delta_display = None
                     if col != "Damage 1" and base_ead is not None:
-                        diff = val - base_ead
-                        differences[col] = diff
-                        pct = (diff / base_ead * 100) if base_ead != 0 else np.nan
-                        pct_changes[col] = pct
-                        sign = "+" if diff >= 0 else "-"
-                        st.info(
-                            f"Difference from Damage 1: {sign}${abs(diff):,.2f} ({pct:+.2f}%)"
-                        )
+                        delta_display = f"${val - base_ead:,.2f}"
+                    metric_cols[idx].metric(
+                        col,
+                        f"${val:,.2f}",
+                        delta=delta_display,
+                    )
+
+            summary_df = pd.DataFrame(summary_rows)
+            if not summary_df.empty:
+                summary_df = summary_df.set_index("Scenario").sort_index()
+                with st.expander("Detailed EAD Summary", expanded=True):
+                    st.dataframe(
+                        summary_df,
+                        use_container_width=True,
+                        column_config={
+                            "EAD": st.column_config.NumberColumn(format="$%.2f"),
+                            "Difference vs Damage 1": st.column_config.NumberColumn(
+                                format="$%.2f"
+                            ),
+                            "% Change": st.column_config.NumberColumn(format="%.2f%%"),
+                        },
+                    )
+
             st.session_state.ead_results = results
             st.session_state.ead_differences = differences
             st.session_state.ead_percent_changes = pct_changes
@@ -635,6 +703,7 @@ def storage_calculator():
     st.caption(
         "Replicates the workflow of the 'Updated Cost of Storage' spreadsheet."
     )
+    st.divider()
 
     tabs = st.tabs(
         [
@@ -652,21 +721,25 @@ def storage_calculator():
         st.info(
             "Determine the percent of conservation storage recommended for water supply."
         )
+        st.divider()
         st.session_state.setdefault("storage_capacity", {})
-        stot = st.number_input(
-            "Total Usable Storage (STot) (ac-ft)",
-            min_value=0.0,
-            value=float(st.session_state.storage_capacity.get("STot", 0.0)),
-            help="Total usable conservation storage (cell B2).",
-        )
-        srec = st.number_input(
-            "Storage Recommendation (SRec) (ac-ft)",
-            min_value=0.0,
-            value=float(st.session_state.storage_capacity.get("SRec", 0.0)),
-            help="Storage volume proposed for reallocation (cell B3).",
-        )
+        cap_cols = st.columns(2)
+        with cap_cols[0]:
+            stot = st.number_input(
+                "Total Usable Storage (STot) (ac-ft)",
+                min_value=0.0,
+                value=float(st.session_state.storage_capacity.get("STot", 0.0)),
+                help="Total usable conservation storage (cell B2).",
+            )
+        with cap_cols[1]:
+            srec = st.number_input(
+                "Storage Recommendation (SRec) (ac-ft)",
+                min_value=0.0,
+                value=float(st.session_state.storage_capacity.get("SRec", 0.0)),
+                help="Storage volume proposed for reallocation (cell B3).",
+            )
         p = (srec / stot) if stot else 0.0
-        st.write(f"Percent of Total Conservation Storage (P): {p:.5f}")
+        st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
         st.session_state.storage_capacity = {"STot": stot, "SRec": srec, "P": p}
 
     # --- Joint Costs O&M --------------------------------------------------
@@ -675,21 +748,25 @@ def storage_calculator():
         st.info(
             "Enter annual joint operations and maintenance costs updated to the current price level."
         )
+        st.divider()
         st.session_state.setdefault("joint_om", {})
-        ops = st.number_input(
-            "Joint Operations Cost ($/year)",
-            min_value=0.0,
-            value=float(st.session_state.joint_om.get("operations", 0.0)),
-            help="Sum of joint operations expenditures.",
-        )
-        maint = st.number_input(
-            "Joint Maintenance Cost ($/year)",
-            min_value=0.0,
-            value=float(st.session_state.joint_om.get("maintenance", 0.0)),
-            help="Sum of joint maintenance expenditures.",
-        )
+        om_cols = st.columns(2)
+        with om_cols[0]:
+            ops = st.number_input(
+                "Joint Operations Cost ($/year)",
+                min_value=0.0,
+                value=float(st.session_state.joint_om.get("operations", 0.0)),
+                help="Sum of joint operations expenditures.",
+            )
+        with om_cols[1]:
+            maint = st.number_input(
+                "Joint Maintenance Cost ($/year)",
+                min_value=0.0,
+                value=float(st.session_state.joint_om.get("maintenance", 0.0)),
+                help="Sum of joint maintenance expenditures.",
+            )
         total_om = ops + maint
-        st.write(f"Total Joint O&M: ${total_om:,.2f}")
+        st.metric("Total Joint O&M", f"${total_om:,.2f}")
         st.session_state.joint_om = {
             "operations": ops,
             "maintenance": maint,
@@ -702,6 +779,7 @@ def storage_calculator():
         st.info(
             "Update original joint-use construction costs to current dollars using CWCCIS ratios."
         )
+        st.divider()
         if "usc_table" not in st.session_state:
             st.session_state.usc_table = pd.DataFrame(
                 {
@@ -738,9 +816,18 @@ def storage_calculator():
                 * st.session_state.usc_table["Update Factor"]
             }
         )
-        st.table(table)
+        with st.expander("Updated Cost Detail", expanded=True):
+            st.dataframe(
+                table,
+                use_container_width=True,
+                column_config={
+                    "Actual Cost": st.column_config.NumberColumn(format="$%.2f"),
+                    "Update Factor": st.column_config.NumberColumn(format="%.5f"),
+                    "Updated Cost": st.column_config.NumberColumn(format="$%.2f"),
+                },
+            )
         ctot = float(table["Updated Cost"].sum())
-        st.write(f"Total Updated Cost of Storage (CTot): ${ctot:,.2f}")
+        st.metric("Total Updated Cost of Storage (CTot)", f"${ctot:,.2f}")
         st.session_state.updated_storage = {"table": table, "CTot": ctot}
 
     # --- RR&R and Mitigation ---------------------------------------------
@@ -749,6 +836,7 @@ def storage_calculator():
         st.info(
             "Annualize rehabilitation/replacement and mitigation costs using a capital recovery factor."
         )
+        st.divider()
         st.session_state.setdefault("rrr_mit", {})
         rate = st.number_input(
             "Federal Discount Rate (%)",
@@ -821,15 +909,28 @@ def storage_calculator():
                 (1 + rate_dec) ** (costs["Year"] - base_year)
             )
             costs["Present Value"] = costs["Future Cost"] * costs["PV Factor"]
-            st.table(costs)
+            with st.expander("RR&R Cash Flow Detail", expanded=True):
+                st.dataframe(
+                    costs,
+                    use_container_width=True,
+                    column_config={
+                        "Future Cost": st.column_config.NumberColumn(format="$%.2f"),
+                        "PV Factor": st.column_config.NumberColumn(format="%.4f"),
+                        "Present Value": st.column_config.NumberColumn(format="$%.2f"),
+                    },
+                )
             total_pv = float(costs["Present Value"].sum())
         else:
             total_pv = 0.0
         updated_cost = total_pv * cwcci
         crf = capital_recovery_factor(rate_dec, periods)
         annualized = updated_cost * crf
-        st.write(f"Updated Cost: ${updated_cost:,.2f}")
-        st.write(f"Annualized RR&R and Mitigation: ${annualized:,.2f}")
+        rrr_metrics = st.columns(3)
+        rrr_metrics[0].metric("Total Present Value Cost", f"${total_pv:,.2f}")
+        rrr_metrics[1].metric("Updated Cost", f"${updated_cost:,.2f}")
+        rrr_metrics[2].metric(
+            "Annualized RR&R and Mitigation", f"${annualized:,.2f}"
+        )
         st.session_state.rrr_mit = {
             "rate": rate,
             "periods": periods,
@@ -847,6 +948,7 @@ def storage_calculator():
         st.info(
             "Combine capital, O&M, and RR&R/mitigation to estimate the annual cost of reallocation."
         )
+        st.divider()
         # Inputs shared across scenarios
         p = st.session_state.get("storage_capacity", {}).get("P", 0.0)
         ctot = st.session_state.get("updated_storage", {}).get("CTot", 0.0)
@@ -857,12 +959,21 @@ def storage_calculator():
         rrr_scaled2 = 0.0
         crec = ctot * p
 
+        baseline_cols = st.columns(3)
+        baseline_cols[0].metric("Percent of Conservation Storage (P)", f"{p:.5f}")
+        baseline_cols[1].metric(
+            "Cost of Storage Recommendation",
+            f"${crec:,.2f}",
+        )
+        baseline_cols[2].metric("Scaled Joint O&M", f"${om_scaled:,.2f}")
+
         st.session_state.setdefault("total_annual_cost_inputs", {})
         inputs = st.session_state.total_annual_cost_inputs
 
         col1, col2 = st.columns(2)
 
         with col1:
+            st.markdown("**Scenario 1**")
             drate1 = st.number_input(
                 "Discount Rate (%)",
                 min_value=0.0,
@@ -882,14 +993,12 @@ def storage_calculator():
             )
             capital1 = ctot * p * capital_recovery_factor(drate1 / 100.0, years1)
             total1 = capital1 + om_scaled + rrr_scaled
-            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
-            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
             st.metric("Annualized Storage Cost", f"${capital1:,.2f}")
-            st.metric("Joint O&M", f"${om_scaled:,.2f}")
             st.metric("Annualized RR&R/Mitigation", f"${rrr_scaled:,.2f}")
             st.metric("Total Annual Cost", f"${total1:,.2f}")
 
         with col2:
+            st.markdown("**Scenario 2**")
             drate2 = st.number_input(
                 "Discount Rate (%)",
                 min_value=0.0,
@@ -909,12 +1018,47 @@ def storage_calculator():
             )
             capital2 = ctot * p * capital_recovery_factor(drate2 / 100.0, years2)
             total2 = capital2 + om_scaled
-            st.metric("Percent of Total Conservation Storage (P)", f"{p:.5f}")
-            st.metric("Cost of Storage Recommendation", f"${crec:,.2f}")
             st.metric("Annualized Storage Cost", f"${capital2:,.2f}")
-            st.metric("Joint O&M", f"${om_scaled:,.2f}")
             st.metric("Annualized RR&R/Mitigation", f"${rrr_scaled2:,.2f}")
             st.metric("Total Annual Cost", f"${total2:,.2f}")
+
+        comparison_df = pd.DataFrame(
+            [
+                {
+                    "Scenario": "Scenario 1",
+                    "Discount Rate (%)": drate1,
+                    "Analysis Period (years)": years1,
+                    "Annualized Storage Cost": capital1,
+                    "Joint O&M": om_scaled,
+                    "Annualized RR&R/Mitigation": rrr_scaled,
+                    "Total Annual Cost": total1,
+                },
+                {
+                    "Scenario": "Scenario 2",
+                    "Discount Rate (%)": drate2,
+                    "Analysis Period (years)": years2,
+                    "Annualized Storage Cost": capital2,
+                    "Joint O&M": om_scaled,
+                    "Annualized RR&R/Mitigation": rrr_scaled2,
+                    "Total Annual Cost": total2,
+                },
+            ]
+        )
+        with st.expander("Scenario Comparison", expanded=True):
+            st.dataframe(
+                comparison_df.set_index("Scenario"),
+                use_container_width=True,
+                column_config={
+                    "Discount Rate (%)": st.column_config.NumberColumn(format="%.2f"),
+                    "Analysis Period (years)": st.column_config.NumberColumn(format="%d"),
+                    "Annualized Storage Cost": st.column_config.NumberColumn(format="$%.2f"),
+                    "Joint O&M": st.column_config.NumberColumn(format="$%.2f"),
+                    "Annualized RR&R/Mitigation": st.column_config.NumberColumn(
+                        format="$%.2f"
+                    ),
+                    "Total Annual Cost": st.column_config.NumberColumn(format="$%.2f"),
+                },
+            )
 
         st.session_state.total_annual_cost_inputs = {
             "rate1": drate1,
@@ -943,44 +1087,63 @@ def storage_calculator():
 def annualizer_calculator():
     """Project cost annualizer."""
     st.header("Project Cost Annualizer")
-    st.info("Calculate annualized project costs and benefit-cost ratio.")
+    st.caption("Calculate annualized project costs and benefit-cost ratio.")
+    st.divider()
+    st.info(
+        "Work through the Corps-style worksheet from first cost development to annual benefit-cost evaluation."
+    )
 
     if "num_future_costs" not in st.session_state:
         st.session_state.num_future_costs = 0
 
-    if st.button("Add planned future cost"):
-        st.session_state.num_future_costs += 1
+    control_cols = st.columns([3, 1])
+    with control_cols[1]:
+        if st.button("Add planned future cost"):
+            st.session_state.num_future_costs += 1
 
     with st.form("annualizer_form"):
-        first_cost = st.number_input(
-            "Project First Cost ($)", min_value=0.0, value=0.0
-        )
-        real_estate_cost = st.number_input(
-            "Real Estate Cost ($)", min_value=0.0, value=0.0
-        )
-        ped_cost = st.number_input("PED Cost ($)", min_value=0.0, value=0.0)
-        monitoring_cost = st.number_input(
-            "Monitoring Cost ($)", min_value=0.0, value=0.0
-        )
-        idc_rate = st.number_input(
-            "Interest Rate (%) - For Interest During Construction",
-            min_value=0.0,
-            value=0.0,
-        )
-        construction_months = st.number_input(
-            "Construction Period (Months)", min_value=0, value=0, step=1
-        )
-        idc_method = st.radio(
-            "IDC Cost Distribution",
-            [
-                "Normalize over construction period",
-                "Specify per-period costs",
-            ],
-            index=0,
-        )
+        st.markdown("#### Step 1 — Establish Base Costs")
+        base_cols = st.columns(2)
+        with base_cols[0]:
+            first_cost = st.number_input(
+                "Project First Cost ($)", min_value=0.0, value=0.0
+            )
+            ped_cost = st.number_input("PED Cost ($)", min_value=0.0, value=0.0)
+        with base_cols[1]:
+            real_estate_cost = st.number_input(
+                "Real Estate Cost ($)", min_value=0.0, value=0.0
+            )
+            monitoring_cost = st.number_input(
+                "Monitoring Cost ($)", min_value=0.0, value=0.0
+            )
+
+        st.divider()
+        st.markdown("#### Step 2 — Interest During Construction Setup")
+        idc_cols = st.columns(2)
+        with idc_cols[0]:
+            idc_rate = st.number_input(
+                "Interest Rate (%)",
+                min_value=0.0,
+                value=0.0,
+                help="Rate used to compute interest during construction.",
+            )
+            construction_months = st.number_input(
+                "Construction Period (Months)", min_value=0, value=0, step=1
+            )
+        with idc_cols[1]:
+            idc_method = st.radio(
+                "IDC Cost Distribution",
+                [
+                    "Normalize over construction period",
+                    "Specify per-period costs",
+                ],
+                index=0,
+            )
+
         period_costs = []
         period_timings = []
         if idc_method == "Specify per-period costs":
+            st.caption("Provide monthly costs and timing to mirror the Corps worksheet schedule.")
             for m in range(1, int(construction_months) + 1):
                 c = st.number_input(
                     f"Cost in month {m} ($)",
@@ -996,19 +1159,26 @@ def annualizer_calculator():
                 )
                 period_costs.append(c)
                 period_timings.append(t)
-        annual_om = st.number_input(
-            "Annual O&M Cost ($)", min_value=0.0, value=0.0
-        )
-        annual_benefits = st.number_input(
-            "Benefits (Annual, $)", min_value=0.0, value=0.0
-        )
-        base_year = st.number_input("Base Year (Year)", min_value=0, step=1, value=0)
-        discount_rate = st.number_input(
-            "Discount Rate (%)", min_value=0.0, value=0.0
-        )
-        period_analysis = st.number_input(
-            "Period of Analysis (Years)", min_value=1, step=1, value=1
-        )
+        st.divider()
+        st.markdown("#### Step 3 — Annual Costs and Benefits")
+        flow_cols = st.columns(2)
+        with flow_cols[0]:
+            annual_om = st.number_input(
+                "Annual O&M Cost ($)", min_value=0.0, value=0.0
+            )
+            annual_benefits = st.number_input(
+                "Benefits (Annual, $)", min_value=0.0, value=0.0
+            )
+        with flow_cols[1]:
+            base_year = st.number_input(
+                "Base Year (Year)", min_value=0, step=1, value=0
+            )
+            discount_rate = st.number_input(
+                "Discount Rate (%)", min_value=0.0, value=0.0
+            )
+            period_analysis = st.number_input(
+                "Period of Analysis (Years)", min_value=1, step=1, value=1
+            )
 
         future_costs = []
         for i in range(st.session_state.num_future_costs):
@@ -1065,22 +1235,54 @@ def annualizer_calculator():
         annual_total = annual_construction + annual_om
         bcr = annual_benefits / annual_total if annual_total else np.nan
 
+        st.divider()
+        st.subheader("Annualizer Results")
         if future_details:
             future_df = pd.DataFrame(future_details)
-            st.write("Planned Future Costs (Present Values)")
-            st.table(future_df)
-            st.success(f"Present Value of Future Costs: ${pv_future:,.2f}")
+            with st.expander("Planned Future Costs", expanded=True):
+                st.dataframe(
+                    future_df,
+                    use_container_width=True,
+                    column_config={
+                        "Cost": st.column_config.NumberColumn(format="$%.2f"),
+                        "PV Factor": st.column_config.NumberColumn(format="%.4f"),
+                        "Present Value": st.column_config.NumberColumn(format="$%.2f"),
+                    },
+                )
+            st.info(f"Present Value of Future Costs: ${pv_future:,.2f}")
             st.session_state.future_costs_df = future_df
         else:
             st.session_state.future_costs_df = pd.DataFrame()
 
-        st.success(f"Interest During Construction: ${idc:,.2f}")
-        st.success(f"Total Cost/Investment: ${total_investment:,.2f}")
-        st.success(f"Capital Recovery Factor: {crf:.4f}")
-        st.success(
-            f"Annual Construction Cost including O&M: ${annual_total:,.2f}"
+        result_metrics = st.columns(3)
+        result_metrics[0].metric(
+            "Interest During Construction", f"${idc:,.2f}")
+        result_metrics[1].metric(
+            "Total Investment", f"${total_investment:,.2f}"
         )
-        st.success(f"Benefit-Cost Ratio: {bcr:,.2f}")
+        result_metrics[2].metric("Capital Recovery Factor", f"{crf:.4f}")
+
+        secondary_metrics = st.columns(2)
+        secondary_metrics[0].metric(
+            "Annual Cost including O&M", f"${annual_total:,.2f}"
+        )
+        secondary_metrics[1].metric("Benefit-Cost Ratio", f"{bcr:,.2f}")
+
+        summary_df = pd.DataFrame(
+            [
+                ("Interest During Construction", f"${idc:,.2f}"),
+                ("Total Investment", f"${total_investment:,.2f}"),
+                ("Capital Recovery Factor", f"{crf:.4f}"),
+                ("Annual Cost including O&M", f"${annual_total:,.2f}"),
+                ("Benefit-Cost Ratio", f"{bcr:,.2f}"),
+            ],
+            columns=["Metric", "Value"],
+        )
+        with st.expander("Result Details", expanded=False):
+            st.dataframe(
+                summary_df.set_index("Metric"),
+                use_container_width=True,
+            )
 
         st.session_state.annualizer_summary = {
             "Interest During Construction": idc,
@@ -1113,6 +1315,7 @@ def udv_analysis():
     st.info(
         "Estimate annual recreation benefits using USACE Unit Day Values (UDV).",
     )
+    st.divider()
     if "udv_table" not in st.session_state:
         st.session_state.udv_table = DEFAULT_UDV_TABLE.copy()
     udv_table = st.session_state.udv_table
@@ -1239,7 +1442,11 @@ def udv_analysis():
                 "Outstanding aesthetic quality; no factors exist that lower quality (16-20)",
             ],
         }
-        st.table(pd.DataFrame(criteria_table).set_index("Criteria"))
+        with st.expander("Ranking Reference", expanded=True):
+            st.dataframe(
+                pd.DataFrame(criteria_table).set_index("Criteria"),
+                use_container_width=True,
+            )
         st.subheader("Table 2. Conversion of Points to Dollar Values")
         st.session_state.udv_table = persistent_data_editor(
             st.session_state.udv_table,
@@ -1256,35 +1463,43 @@ def water_demand_forecast():
         "Project municipal and industrial water demand using USACE guidance." \
         " Calculations follow ER 1105-2-100 methodology."
     )
+    st.divider()
 
     with st.form("water_demand_form"):
-        base_year = st.number_input(
-            "Base Year",
-            min_value=0,
-            value=2024,
-            step=1,
-            help="Starting year for the forecast.",
-        )
-        projection_years = st.number_input(
-            "Projection Years",
-            min_value=1,
-            value=20,
-            step=1,
-            help="Number of years to project beyond the base year.",
-        )
-        base_pop = st.number_input(
-            "Base Population",
-            min_value=0.0,
-            value=0.0,
-            step=100.0,
-            help="Population in the base year.",
-        )
-        per_capita = st.number_input(
-            "Per-capita Municipal Demand (gallons/person/day)",
-            min_value=0.0,
-            value=100.0,
-            help="Typical municipal use per person.",
-        )
+        st.markdown("#### Step 1 — Baseline Inputs")
+        baseline_cols = st.columns(2)
+        with baseline_cols[0]:
+            base_year = st.number_input(
+                "Base Year",
+                min_value=0,
+                value=2024,
+                step=1,
+                help="Starting year for the forecast.",
+            )
+            base_pop = st.number_input(
+                "Base Population",
+                min_value=0.0,
+                value=0.0,
+                step=100.0,
+                help="Population in the base year.",
+            )
+        with baseline_cols[1]:
+            projection_years = st.number_input(
+                "Projection Years",
+                min_value=1,
+                value=20,
+                step=1,
+                help="Number of years to project beyond the base year.",
+            )
+            per_capita = st.number_input(
+                "Per-capita Municipal Demand (gallons/person/day)",
+                min_value=0.0,
+                value=100.0,
+                help="Typical municipal use per person.",
+            )
+
+        st.markdown("#### Step 2 — Growth and Adjustment Schedules")
+        st.caption("Populate each tab with annual factors to mirror USACE worksheet sections.")
 
         pop_tab, ind_tab, loss_tab, cons_tab = st.tabs(
             ["Population", "Industry", "Losses", "Conservation"]
@@ -1408,14 +1623,37 @@ def water_demand_forecast():
         st.session_state.water_input_table = input_df
         st.session_state.water_demand_results = result_df
 
-    if st.session_state.get("water_input_table") is not None:
-        st.subheader("Input Assumptions")
-        st.table(st.session_state.water_input_table)
-
+    has_inputs = st.session_state.get("water_input_table") is not None
     result_df = st.session_state.get("water_demand_results", pd.DataFrame())
+
+    if has_inputs or not result_df.empty:
+        st.divider()
+
+    if has_inputs:
+        st.subheader("Input Assumptions")
+        with st.expander("Assumption Table", expanded=False):
+            st.dataframe(
+                st.session_state.water_input_table,
+                use_container_width=True,
+            )
+
     if not result_df.empty:
         st.subheader("Forecast Results")
-        st.table(result_df)
+        latest = result_df.iloc[-1]
+        result_metrics = st.columns(3)
+        result_metrics[0].metric(
+            "Final Year Total Demand (MGY)", f"{latest['Total Demand (MGY)']:.2f}"
+        )
+        result_metrics[1].metric(
+            "Final Year Municipal Demand (MGY)",
+            f"{latest['Municipal Demand (MGY)']:.2f}",
+        )
+        result_metrics[2].metric(
+            "Final Year Industrial Demand (MGY)",
+            f"{latest['Industrial Demand (MGY)']:.2f}",
+        )
+        with st.expander("Detailed Forecast Table", expanded=True):
+            st.dataframe(result_df, use_container_width=True)
         st.line_chart(result_df.set_index("Year")["Total Demand (MGY)"])
 
     export_button()
